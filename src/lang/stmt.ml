@@ -35,7 +35,7 @@ include Fixed
 let assign meta name expr = fix meta @@ Pattern.assign name expr
 let assign_ name expr = assign () name expr
 let skip meta = fix meta @@ Pattern.skip
-let skip_ : (unit,unit,unit) t = skip ()
+let skip_ : (unit, unit, unit) t = skip ()
 let block meta xs = fix meta @@ Pattern.block xs
 let block_ xs = block () xs
 let if_ meta test ts fs = fix meta @@ Pattern.if_ test ts fs
