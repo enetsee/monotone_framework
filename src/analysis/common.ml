@@ -60,7 +60,7 @@ and labels_pattern cur_label accu = function
 (** Retrieve the statments corresponding to the `labels` of a statement! *)
 let blocks assocs labels =
   IntSet.to_list labels
-  |> List.filter_map ~f:(fun x -> Associations.find_stmt assocs x)
+  |> List.filter_map ~f:(fun label -> Associations.find_stmt assocs label)
 ;;
 
 (** Get the lables of the initial statement in a statement *)
