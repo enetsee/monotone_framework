@@ -1,0 +1,5 @@
+(executable
+  (name monotone_framework)
+  (libraries core_kernel str fmt lib lang)
+  (public_name monotone_framework)  
+  (preprocess (pps ppx_jane ppx_deriving.map ppx_deriving.fold )))
