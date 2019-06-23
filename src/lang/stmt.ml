@@ -2,7 +2,22 @@ open Core_kernel
 open Lib
 open State.Cps
 
-module Pattern = struct
+module Pattern : sig
+  type ('a, 'b, 's) t =
+    | Assign of string * 'a
+    | Skip
+    | Block of 's list
+    | If of 'b * 's * 's
+    | While of 'b * 's
+
+  include Pattern_functor.S3 with type ('a, 'b, 'c) t := ('a, 'b, 'c) t
+
+  val assign : string -> 'a -> ('a, 'b, 'c) t
+  val skip : ('a, 'b, 'c) t
+  val block : 'c list -> ('a, 'b, 'c) t
+  val if_ : 'b -> 'c -> 'c -> ('a, 'b, 'c) t
+  val while_ : 'b -> 'c -> ('a, 'b, 'c) t
+end = struct
   module Basic = struct
     type ('a, 'b, 's) t =
       | Assign of string * 'a
@@ -10,7 +25,7 @@ module Pattern = struct
       | Block of 's list
       | If of 'b * 's * 's
       | While of 'b * 's
-    [@@deriving map, fold, sexp, compare]
+    [@@deriving map, fold, sexp, compare, hash]
 
     let trimap ~f ~g ~h x = map f g h x
     let trifold_left ~f ~g ~h ~init x = fold f g h init x
@@ -127,15 +142,110 @@ module Tritraversable_state = Make_tritraversable2 (State)
 
 let tritraverse_state = Tritraversable_state.tritraverse
 
+(* == Statements without meta-data ========================================== *)
+
+module Unlabelled = struct
+  type meta = unit [@@deriving compare, hash, sexp]
+
+  type nonrec t =
+    (Arith_expr.Unlabelled.meta, Bool_expr.Unlabelled.meta, meta) t
+
+  let compare (x : t) (y : t) =
+    compare
+      Arith_expr.Unlabelled.compare_meta
+      Bool_expr.Unlabelled.compare_meta
+      compare_meta
+      x
+      y
+  ;;
+
+  let sexp_of_t (x : t) =
+    sexp_of_t
+      Arith_expr.Unlabelled.sexp_of_meta
+      Bool_expr.Unlabelled.sexp_of_meta
+      sexp_of_meta
+      x
+  ;;
+
+  let t_of_sexp x : t =
+    t_of_sexp
+      Arith_expr.Unlabelled.meta_of_sexp
+      Bool_expr.Unlabelled.meta_of_sexp
+      meta_of_sexp
+      x
+  ;;
+
+  let hash_fold_t state (x : t) =
+    hash_fold_t
+      Arith_expr.Unlabelled.hash_fold_meta
+      Bool_expr.Unlabelled.hash_fold_meta
+      hash_fold_meta
+      state
+      x
+  ;;
+
+  include Comparator.Make (struct
+    type nonrec t = t
+
+    let compare = compare
+    let sexp_of_t = sexp_of_t
+  end)
+
+  let unlabel stmt : t =
+    trimap ~f:(fun _ -> ()) ~g:(fun _ -> ()) ~h:(fun _ -> ()) stmt
+  ;;
+end
+
 (* == Integer labelled statements =========================================== *)
 
 module Labelled = struct
-  type meta = { label : int }
+  type meta = { label : int } [@@deriving compare, hash, sexp]
   type nonrec t = (Arith_expr.Labelled.meta, Bool_expr.Labelled.meta, meta) t
+
+  let compare (x : t) (y : t) =
+    compare
+      Arith_expr.Labelled.compare_meta
+      Bool_expr.Labelled.compare_meta
+      compare_meta
+      x
+      y
+  ;;
+
+  let sexp_of_t (x : t) =
+    sexp_of_t
+      Arith_expr.Labelled.sexp_of_meta
+      Bool_expr.Labelled.sexp_of_meta
+      sexp_of_meta
+      x
+  ;;
+
+  let t_of_sexp x : t =
+    t_of_sexp
+      Arith_expr.Labelled.meta_of_sexp
+      Bool_expr.Labelled.meta_of_sexp
+      meta_of_sexp
+      x
+  ;;
+
+  let hash_fold_t state (x : t) =
+    hash_fold_t
+      Arith_expr.Labelled.hash_fold_meta
+      Bool_expr.Labelled.hash_fold_meta
+      hash_fold_meta
+      state
+      x
+  ;;
+
+  include Comparator.Make (struct
+    type nonrec t = t
+
+    let compare = compare
+    let sexp_of_t = sexp_of_t
+  end)
 
   let label_of { meta; _ } = meta.label
 
-  let label stmt =
+  let label stmt : t =
     let incr_label =
       State.(get >>= fun label -> put (label + 1) >>= fun _ -> return label)
     in

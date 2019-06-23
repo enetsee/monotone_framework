@@ -7,7 +7,7 @@ type op =
   | Minus
   | Mult
   | Div
-[@@deriving compare, sexp]
+[@@deriving compare, sexp, hash]
 
 module Pattern : sig
   type 'a t =
@@ -29,7 +29,7 @@ end = struct
       | Lit of int
       | Var of string
       | Binop of 'a * op * 'a
-    [@@deriving map, fold, compare, sexp]
+    [@@deriving map, fold, compare, sexp, hash]
 
     let map ~f x = map f x
     let fold_left ~f ~init x = fold f init x
@@ -125,11 +125,46 @@ module Traversable_state = Make_traversable2 (State)
 
 let traverse_state = Traversable_state.traverse
 
+(* == Arithmetic expressions with no meta-data ============================== *)
+
+module Unlabelled = struct
+  type meta = unit [@@deriving sexp, hash, compare]
+  type nonrec t = meta t
+
+  let compare x = compare compare_meta x
+  let sexp_of_t x = sexp_of_t sexp_of_meta x
+  let t_of_sexp x = t_of_sexp meta_of_sexp x
+  let hash_fold_t = hash_fold_t hash_fold_meta
+
+  include Comparator.Make (struct
+    type nonrec t = t
+
+    let compare = compare
+    let sexp_of_t = sexp_of_t
+  end)
+
+  let unlabel arith_expr = map ~f:(fun _ -> ()) arith_expr
+end
+
 (* == Integer labelled arithmetic expressions =============================== *)
 
 module Labelled = struct
-  type meta = { label : int }
+  type meta = { label : int [@compare_sexp_opaque] }
+  [@@deriving sexp, hash, compare]
+
   type nonrec t = meta t
+
+  let compare x = compare compare_meta x
+  let sexp_of_t x = sexp_of_t sexp_of_meta x
+  let t_of_sexp x = t_of_sexp meta_of_sexp x
+  let hash_fold_t = hash_fold_t hash_fold_meta
+
+  include Comparator.Make (struct
+    type nonrec t = t
+
+    let compare = compare
+    let sexp_of_t = sexp_of_t
+  end)
 
   let label_of { meta; _ } = meta.label
 

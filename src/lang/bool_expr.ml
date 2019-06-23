@@ -5,13 +5,13 @@ open State.Cps
 type bool_op =
   | And
   | Or
-[@@deriving compare, sexp]
+[@@deriving compare, sexp, hash]
 
 type rel_op =
   | Eq
   | Gt
   | Lt
-[@@deriving compare, sexp]
+[@@deriving compare, sexp, hash]
 
 module Pattern : sig
   type ('a, 'b) t =
@@ -39,7 +39,7 @@ end = struct
       | Not of 'b
       | Boolop of 'b * bool_op * 'b
       | Relop of 'a * rel_op * 'a
-    [@@deriving map, fold, compare, sexp]
+    [@@deriving map, fold, compare, sexp, hash]
 
     let bimap ~f ~g x = map f g x
     let bifold_left ~f ~g ~init x = fold f g init x
@@ -165,15 +165,54 @@ module Bitraversable_state = Make_bitraversable2 (State)
 
 let bitraverse_state = Bitraversable_state.bitraverse
 
+(* == Boolean expressions with no meta-data ==================================*)
+
+module Unlabelled = struct
+  type meta = unit [@@deriving compare, hash, sexp]
+  type nonrec t = (Arith_expr.Unlabelled.meta, meta) t
+
+  let compare x = compare Arith_expr.Unlabelled.compare_meta compare_meta x
+  let sexp_of_t x = sexp_of_t Arith_expr.Unlabelled.sexp_of_meta sexp_of_meta x
+  let t_of_sexp x = t_of_sexp Arith_expr.Unlabelled.meta_of_sexp meta_of_sexp x
+
+  let hash_fold_t =
+    hash_fold_t Arith_expr.Unlabelled.hash_fold_meta hash_fold_meta
+  ;;
+
+  include Comparator.Make (struct
+    type nonrec t = t
+
+    let compare = compare
+    let sexp_of_t = sexp_of_t
+  end)
+
+  let unlabel bool_expr : t = bimap ~f:(fun _ -> ()) ~g:(fun _ -> ()) bool_expr
+end
+
 (* == Integer labelled boolean expressions ================================== *)
 
 module Labelled = struct
-  type meta = { label : int }
+  type meta = { label : int } [@@deriving compare, hash, sexp]
   type nonrec t = (Arith_expr.Labelled.meta, meta) t
+
+  let compare x = compare Arith_expr.Labelled.compare_meta compare_meta x
+  let sexp_of_t x = sexp_of_t Arith_expr.Labelled.sexp_of_meta sexp_of_meta x
+  let t_of_sexp x = t_of_sexp Arith_expr.Labelled.meta_of_sexp meta_of_sexp x
+
+  let hash_fold_t =
+    hash_fold_t Arith_expr.Labelled.hash_fold_meta hash_fold_meta
+  ;;
+
+  include Comparator.Make (struct
+    type nonrec t = t
+
+    let compare = compare
+    let sexp_of_t = sexp_of_t
+  end)
 
   let label_of { meta; _ } = meta.label
 
-  let label bool_expr =
+  let label bool_expr : t =
     let incr_label =
       State.(get >>= fun label -> put (label + 1) >>= fun _ -> return label)
     in

@@ -11,6 +11,12 @@ module Fixed = struct
 
     val compare : ('a -> 'a -> int) -> 'a t -> 'a t -> int
 
+    val hash_fold_t
+      :  (Hash.state -> 'a -> Hash.state)
+      -> Hash.state
+      -> 'a t
+      -> Hash.state
+
     include Functor.S with type 'a t := 'a t
     include Foldable.Basic with type 'a t := 'a t
     include Sexpable.S1 with type 'a t := 'a t
@@ -25,6 +31,12 @@ module Fixed = struct
       }
 
     val compare : ('a -> 'a -> int) -> 'a t -> 'a t -> int
+
+    val hash_fold_t
+      :  (Hash.state -> 'a -> Hash.state)
+      -> Hash.state
+      -> 'a t
+      -> Hash.state
 
     include Sexpable.S1 with type 'a t := 'a t
     include Functor.S with type 'a t := 'a t
@@ -83,6 +95,13 @@ module Fixed = struct
       -> ('a, 'b) t
       -> int
 
+    val hash_fold_t
+      :  (Hash.state -> 'a -> Hash.state)
+      -> (Hash.state -> 'b -> Hash.state)
+      -> Hash.state
+      -> ('a, 'b) t
+      -> Hash.state
+
     include Bifunctor.Basic with type ('a, 'b) t := ('a, 'b) t
     include Bifoldable.Basic with type ('a, 'b) t := ('a, 'b) t
     include Sexpable.S2 with type ('a, 'b) t := ('a, 'b) t
@@ -103,6 +122,13 @@ module Fixed = struct
       -> ('a, 'b) t
       -> ('a, 'b) t
       -> int
+
+    val hash_fold_t
+      :  (Hash.state -> 'a -> Hash.state)
+      -> (Hash.state -> 'b -> Hash.state)
+      -> Hash.state
+      -> ('a, 'b) t
+      -> Hash.state
 
     include Sexpable.S2 with type ('a, 'b) t := ('a, 'b) t
     include Bifunctor.S with type ('a, 'b) t := ('a, 'b) t
@@ -175,6 +201,14 @@ module Fixed = struct
       -> ('a, 'b, 'c) t
       -> int
 
+    val hash_fold_t
+      :  (Hash.state -> 'a -> Hash.state)
+      -> (Hash.state -> 'b -> Hash.state)
+      -> (Hash.state -> 'c -> Hash.state)
+      -> Hash.state
+      -> ('a, 'b, 'c) t
+      -> Hash.state
+
     include Trifunctor.Basic with type ('a, 'b, 'c) t := ('a, 'b, 'c) t
     include Trifoldable.Basic with type ('a, 'b, 'c) t := ('a, 'b, 'c) t
     include Sexpable.S3 with type ('a, 'b, 'c) t := ('a, 'b, 'c) t
@@ -197,6 +231,14 @@ module Fixed = struct
       -> ('a, 'b, 'c) t
       -> ('a, 'b, 'c) t
       -> int
+
+    val hash_fold_t
+      :  (Hash.state -> 'a -> Hash.state)
+      -> (Hash.state -> 'b -> Hash.state)
+      -> (Hash.state -> 'c -> Hash.state)
+      -> Hash.state
+      -> ('a, 'b, 'c) t
+      -> Hash.state
 
     include Sexpable.S3 with type ('a, 'b, 'c) t := ('a, 'b, 'c) t
     include Trifunctor.S with type ('a, 'b, 'c) t := ('a, 'b, 'c) t
@@ -283,6 +325,7 @@ module Fixed = struct
     let sexp_of_t = X.sexp_of_t
     let t_of_sexp = X.t_of_sexp
     let compare = X.compare
+    let hash_fold_t = X.hash_fold_t
     let pattern { X.pattern; _ } = pattern
     let meta { X.meta; _ } = meta
     let fix meta pattern = { X.pattern; meta }
@@ -339,6 +382,7 @@ module Fixed = struct
     let sexp_of_t = X.sexp_of_t
     let t_of_sexp = X.t_of_sexp
     let compare = X.compare
+    let hash_fold_t = X.hash_fold_t
 
     let rec bimap_pattern ~f ~g { X.pattern; meta } =
       { X.pattern =
@@ -417,6 +461,7 @@ module Fixed = struct
     let sexp_of_t = X.sexp_of_t
     let t_of_sexp = X.t_of_sexp
     let compare = X.compare
+    let hash_fold_t = X.hash_fold_t
 
     let rec trimap_pattern ~f ~g ~h { X.pattern; meta } =
       { X.pattern =
@@ -520,7 +565,7 @@ struct
       { pattern : 'a t Pattern.t
       ; meta : 'a [@compare_sexp_opaque] [@hash_fold_sexp_opaque]
       }
-    [@@deriving sexp, compare]
+    [@@deriving sexp, compare, hash]
 
     let rec map ~f { pattern; meta } =
       { pattern = Pattern.map ~f:(map ~f) pattern; meta = f meta }
@@ -548,9 +593,9 @@ module Make2 (Pattern : Pattern_functor.S2) (First : S) :
 
     type ('a, 'b) t =
       { pattern : ('a First.t, ('a, 'b) t) Pattern.t
-      ; meta : 'b [@compare_sexp_opaque]
+      ; meta : 'b [@compare_sexp_opaque] [@hash_fold_sexp_opaque]
       }
-    [@@deriving sexp, compare]
+    [@@deriving sexp, compare, hash]
 
     let rec bimap ~f ~g { pattern; meta } =
       { pattern = Pattern.bimap ~f:(First.map ~f) ~g:(bimap ~f ~g) pattern
@@ -588,9 +633,9 @@ module Make3
 
     type ('a, 'b, 'c) t =
       { pattern : ('a First.t, ('a, 'b) Second.t, ('a, 'b, 'c) t) Pattern.t
-      ; meta : 'c [@compare_sexp_opaque]
+      ; meta : 'c [@compare_sexp_opaque] [@hash_fold_sexp_opaque]
       }
-    [@@deriving sexp, compare]
+    [@@deriving sexp, compare, hash]
 
     let rec trimap ~f ~g ~h { pattern; meta } =
       { pattern =

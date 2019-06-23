@@ -2,8 +2,8 @@ open Core_kernel
 open Lang
 
 (** Construct maps from labels to expressions and statements *)
-let rec associate ?init:(accu = Associations.empty) stmt =
-  let accu' = Associations.add_stmt stmt accu in
+let rec associate ?init:(accu = Associations.empty) (stmt : Stmt.Labelled.t) =
+  let accu' = Associations.add_stmt accu stmt in
   associate_pattern accu' @@ Stmt.pattern stmt
 
 and associate_pattern accu = function
@@ -16,8 +16,10 @@ and associate_pattern accu = function
   | Block xs ->
     List.fold_right ~f:(fun x accu -> associate ~init:accu x) ~init:accu xs
 
-and associate_bool_expr ?init:(accu = Associations.empty) bool_expr =
-  let accu' = Associations.add_bool_expr bool_expr accu in
+and associate_bool_expr
+    ?init:(accu = Associations.empty) (bool_expr : Bool_expr.Labelled.t)
+  =
+  let accu' = Associations.add_bool_expr accu bool_expr in
   associate_bool_expr_pattern accu' @@ Bool_expr.pattern bool_expr
 
 and associate_bool_expr_pattern accu = function
@@ -28,10 +30,12 @@ and associate_bool_expr_pattern accu = function
   | Relop (a1, _, a2) ->
     associate_arith_expr ~init:(associate_arith_expr ~init:accu a2) a1
 
-and associate_arith_expr ?init:(accu = Associations.empty) arith_expr =
+and associate_arith_expr
+    ?init:(accu = Associations.empty) (arith_expr : Arith_expr.Labelled.t)
+  =
   Associations.add_arith_expr
-    arith_expr
     (associate_arith_expr_pattern accu @@ Arith_expr.pattern arith_expr)
+    arith_expr
 
 and associate_arith_expr_pattern accu = function
   | Lit _ | Var _ -> accu
@@ -55,7 +59,8 @@ and labels_pattern cur_label accu = function
 
 (** Retrieve the statments corresponding to the `labels` of a statement! *)
 let blocks assocs labels =
-  List.filter_map labels ~f:(fun x -> Associations.find_stmt assocs x)
+  IntSet.to_list labels
+  |> List.filter_map ~f:(fun x -> Associations.find_stmt assocs x)
 ;;
 
 (** Get the lables of the initial statement in a statement *)
@@ -134,7 +139,8 @@ let vars_pattern ?init:(accu = []) expr =
 ;;
 
 (** The non-trivial arithmetic expressions in a statement *)
-let trivial = function
+let trivial { Arith_expr.pattern; _ } =
+  match pattern with
   | Arith_expr.Pattern.Var _ | Lit _ -> true
   | _ -> false
 ;;
@@ -142,4 +148,6 @@ let trivial = function
 let non_trivial_arith_expr assocs =
   Associations.arith_exprs assocs
   |> List.filter ~f:(fun (_, x) -> not @@ trivial x)
+  |> List.map ~f:snd
+  |> AExpSet.of_list
 ;;
