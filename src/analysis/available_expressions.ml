@@ -81,21 +81,31 @@ let bottom = aexp_2_5
 let i = AExpSet.empty
 let e = IntSet.singleton initial_2_5
 let f = flow_2_5
-let leq a b = AExpSet.is_subset a ~of_:b
-let lub a b = AExpSet.union a b
+let leq a b = AExpSet.is_subset b ~of_:a
+
+let lub a b = AExpSet.inter a b
 let w = f
+
+type props = 
+  { flow : (int * int ) list 
+  ; i :  AExpSet.t 
+  ; bottom : AExpSet.t 
+  ; initial_label : int 
+  ; associations : int -> Stmt.Unlabelled.t option
+  }
 
 let analysis =
   IntMap.of_alist_exn
-    ((initial_2_5, i) :: List.map ~f:(fun (l, _) -> l, bottom) f)
+    (List.map ~f:(fun (l, _) -> l, if l = initial_2_5 then i else bottom) f)
 ;;
 
-let tf assocs aexps label =
-  match Associations.find_stmt assocs label with
-  | Some stmt ->
-    let kills = kill aexp_2_5 stmt
+let tf bottom assocs analysis label =
+  match Associations.find_stmt assocs label , IntMap.find analysis label with
+  | Some stmt , Some aexps ->
+    let kills = kill bottom stmt
     and gens = gen stmt in
-    AExpSet.diff aexps kills |> AExpSet.union gens
+    AExpSet.diff aexps kills 
+    |> AExpSet.union gens
   | _ -> failwith "can't happen"
 ;;
 
@@ -105,21 +115,22 @@ let rec enqueue label accu = function
   | _ :: rest -> enqueue label accu rest
 ;;
 
+let update_analysis analysis label xs = 
+  IntMap.update analysis label 
+    ~f:(fun aexp_opt ->
+        aexp_opt
+        |> Option.value ~default:AExpSet.empty
+        |> lub xs
+    )
+            
 let rec aux flow analysis = function
   | [] -> analysis
   | (l, l') :: rest ->
-    let aexps_l = Map.find analysis l |> Option.value ~default:AExpSet.empty in
-    let aexps_l' =
-      Map.find analysis l' |> Option.value ~default:AExpSet.empty
-    in
-    let tf_l = tf assocs_2_5 aexps_l l in
-    let tf_l' = tf assocs_2_5 aexps_l' l' in
-    if not (leq tf_l tf_l')
+    let tf_l = tf aexp_2_5 assocs_2_5 analysis l 
+    and aexp_l' = IntMap.find_exn analysis l' in
+    if not (leq tf_l aexp_l')
     then (
-      let analysis' =
-        IntMap.update analysis l' ~f:(function
-            | Some aexp -> lub aexp tf_l
-            | _ -> tf_l)
+      let analysis' = update_analysis analysis l' tf_l 
       and w = enqueue l' rest flow in
       aux flow analysis' w)
     else aux flow analysis rest
@@ -128,17 +139,16 @@ let rec aux flow analysis = function
 let analysis' = aux f analysis w
 
 let entry =
-  initial_2_5 :: List.map ~f:fst f
+  List.map ~f:fst f
+  |> List.sort ~compare:(fun x y -> x - y)
   |> List.map ~f:(fun lbl ->
          lbl, IntMap.find_exn analysis' lbl |> AExpSet.to_list)
 ;;
 
 let exit =
-  initial_2_5 :: List.map ~f:fst f
+  List.map ~f:fst f
+  |> List.sort ~compare:(fun x y -> x - y)
   |> List.map ~f:(fun l ->
-         let aexps_l =
-           Map.find analysis l |> Option.value ~default:AExpSet.empty
-         in
-         let tf_l = tf assocs_2_5 aexps_l l in
+         let tf_l = tf aexp_2_5 assocs_2_5 analysis' l in
          l, AExpSet.to_list tf_l)
 ;;
