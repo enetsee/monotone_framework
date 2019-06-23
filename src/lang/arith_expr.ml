@@ -103,8 +103,7 @@ module Make_traversable (M : Monad.S) :
     M.(
       f meta
       >>= fun meta' ->
-      traverse_pattern ~f:(traverse ~f) pattern
-      >>= fun pattern' -> return @@ fix meta' pattern')
+      traverse_pattern ~f:(traverse ~f) pattern |> map ~f:(fix meta'))
   ;;
 end
 
@@ -118,8 +117,7 @@ module Make_traversable2 (M : Monad.S2) :
     M.(
       f meta
       >>= fun meta' ->
-      traverse_pattern ~f:(traverse ~f) pattern
-      >>= fun pattern' -> return @@ fix meta' pattern')
+      traverse_pattern ~f:(traverse ~f) pattern |> map ~f:(fix meta'))
   ;;
 end
 
