@@ -149,10 +149,9 @@ end
 (* == Integer labelled arithmetic expressions =============================== *)
 
 module Labelled = struct
-
   module Label = Label.Make (struct
     type t = int [@@deriving hash, sexp_of, of_sexp, compare]
-  end)  
+  end)
 
   type meta = { label : Label.t [@compare.ignore] }
   [@@deriving sexp, hash, compare]

@@ -43,9 +43,7 @@ and associate_arith_expr_pattern accu = function
     associate_arith_expr ~init:(associate_arith_expr ~init:accu a2) a1
 ;;
 
-
-
-module StmtLabelSet = Set.Make_using_comparator(Stmt.Labelled.Label)
+module StmtLabelSet = Set.Make_using_comparator (Stmt.Labelled.Label)
 
 (** Determine the set of labels for a labelled statement *)
 let rec labels ?init:(accu = StmtLabelSet.empty) stmt =
@@ -156,8 +154,7 @@ let trivial { Arith_expr.pattern; _ } =
   | _ -> false
 ;;
 
-
-module AExpSet = Set.Make_using_comparator(Arith_expr.Labelled)
+module AExpSet = Set.Make_using_comparator (Arith_expr.Labelled)
 
 let non_trivial_arith_expr assocs =
   Associations.arith_exprs assocs

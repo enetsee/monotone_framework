@@ -1,10 +1,8 @@
 open Core_kernel
 open Lang
-
-
-module AExpMap = Map.Make_using_comparator(Arith_expr.Labelled.Label)
-module BExpMap = Map.Make_using_comparator(Bool_expr.Labelled.Label)
-module StmtMap = Map.Make_using_comparator(Stmt.Labelled.Label)
+module AExpMap = Map.Make_using_comparator (Arith_expr.Labelled.Label)
+module BExpMap = Map.Make_using_comparator (Bool_expr.Labelled.Label)
+module StmtMap = Map.Make_using_comparator (Stmt.Labelled.Label)
 
 type t =
   { arith_exprs : Arith_expr.Labelled.t AExpMap.t
@@ -43,7 +41,6 @@ let find_stmt { stmts; _ } lbl = StmtMap.find stmts lbl
 let stmts { stmts; _ } = StmtMap.to_alist stmts
 let arith_exprs { arith_exprs; _ } = AExpMap.to_alist arith_exprs
 let bool_exprs { bool_exprs; _ } = BExpMap.to_alist bool_exprs
-
-let stmt_map { stmts ; _} = stmts
-let arith_expr_map { arith_exprs ; _} = arith_exprs
-let bool_expr_map { bool_exprs ; _} = bool_exprs
+let stmt_map { stmts; _ } = stmts
+let arith_expr_map { arith_exprs; _ } = arith_exprs
+let bool_expr_map { bool_exprs; _ } = bool_exprs
