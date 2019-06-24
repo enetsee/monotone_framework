@@ -14,3 +14,4 @@ module Tritraversable = Tritraversable
 module State = State
 module Pattern_functor = Pattern_functor
 module Fix = Fix
+module Label = Label

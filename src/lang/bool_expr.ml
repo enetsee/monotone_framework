@@ -192,10 +192,20 @@ end
 (* == Integer labelled boolean expressions ================================== *)
 
 module Labelled = struct
-  type meta = { label : int } [@@deriving compare, hash, sexp]
+
+  module Label = Label.Make (struct
+    type t = int [@@deriving hash, sexp_of, of_sexp, compare]
+  end)  
+
+  type meta = { label : Label.t [@compare.ignore] }
+  [@@deriving compare, hash, sexp]
+
   type nonrec t = (Arith_expr.Labelled.meta, meta) t
 
-  let compare x = compare Arith_expr.Labelled.compare_meta compare_meta x
+  let compare (x : t) (y : t) =
+    compare Arith_expr.Labelled.compare_meta compare_meta x y
+  ;;
+
   let sexp_of_t x = sexp_of_t Arith_expr.Labelled.sexp_of_meta sexp_of_meta x
   let t_of_sexp x = t_of_sexp Arith_expr.Labelled.meta_of_sexp meta_of_sexp x
 

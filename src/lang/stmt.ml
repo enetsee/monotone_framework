@@ -199,7 +199,14 @@ end
 (* == Integer labelled statements =========================================== *)
 
 module Labelled = struct
-  type meta = { label : int } [@@deriving compare, hash, sexp]
+
+  module Label = Label.Make (struct
+    type t = int [@@deriving hash, sexp_of, of_sexp, compare]
+  end)  
+
+  type meta = { label : Label.t [@compare.ignore] }
+  [@@deriving compare, hash, sexp]
+
   type nonrec t = (Arith_expr.Labelled.meta, Bool_expr.Labelled.meta, meta) t
 
   let compare (x : t) (y : t) =

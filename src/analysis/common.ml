@@ -43,24 +43,35 @@ and associate_arith_expr_pattern accu = function
     associate_arith_expr ~init:(associate_arith_expr ~init:accu a2) a1
 ;;
 
+
+
+module StmtLabelSet = Set.Make_using_comparator(Stmt.Labelled.Label)
+
 (** Determine the set of labels for a labelled statement *)
-let rec labels ?init:(accu = IntSet.empty) stmt =
+let rec labels ?init:(accu = StmtLabelSet.empty) stmt =
   let label = Stmt.Labelled.label_of stmt in
   labels_pattern label accu @@ Stmt.pattern stmt
 
 and labels_pattern cur_label accu = function
-  | Stmt.Pattern.Assign _ | Skip -> IntSet.add accu cur_label
+  | Stmt.Pattern.Assign _ | Skip -> StmtLabelSet.add accu cur_label
   | If (_, s1, s2) ->
-    labels ~init:(labels ~init:(IntSet.add accu cur_label) s2) s1
-  | While (_, body) -> labels ~init:(IntSet.add accu cur_label) body
+    labels ~init:(labels ~init:(StmtLabelSet.add accu cur_label) s2) s1
+  | While (_, body) -> labels ~init:(StmtLabelSet.add accu cur_label) body
   | Block xs ->
     List.fold_right ~f:(fun x accu -> labels ~init:accu x) ~init:accu xs
 ;;
 
 (** Retrieve the statments corresponding to the `labels` of a statement! *)
 let blocks assocs labels =
-  IntSet.to_list labels
+  StmtLabelSet.to_list labels
   |> List.filter_map ~f:(fun label -> Associations.find_stmt assocs label)
+;;
+
+let labelled_blocks assocs labels =
+  StmtLabelSet.to_list labels
+  |> List.filter_map ~f:(fun label ->
+         Option.map ~f:(fun x -> label, x)
+         @@ Associations.find_stmt assocs label)
 ;;
 
 (** Get the lables of the initial statement in a statement *)
@@ -74,14 +85,14 @@ and initial_pattern cur_label = function
 ;;
 
 (** Get the labels of the possible final statements in a statement *)
-let rec finals ?init:(accu = IntSet.empty) stmt =
+let rec finals ?init:(accu = StmtLabelSet.empty) stmt =
   let label = Stmt.Labelled.label_of stmt in
   final_pattern label accu @@ Stmt.pattern stmt
 
 and final_pattern cur_label accu = function
-  | Stmt.Pattern.Assign _ | Skip -> IntSet.add accu cur_label
+  | Stmt.Pattern.Assign _ | Skip -> StmtLabelSet.add accu cur_label
   | If (_, ts, fs) -> finals ~init:(finals ~init:accu fs) ts
-  | While (_, _) -> IntSet.add accu cur_label
+  | While (_, _) -> StmtLabelSet.add accu cur_label
   | Block xs ->
     (match List.last xs with
     | Some x -> finals ~init:accu x
@@ -106,7 +117,7 @@ and flow_pattern cur_label accu = function
     let init_body = initial body
     and finals_body = finals body in
     let finals =
-      List.map ~f:(fun l' -> l', cur_label) @@ IntSet.to_list finals_body
+      List.map ~f:(fun l' -> l', cur_label) @@ StmtLabelSet.to_list finals_body
     in
     flow ~init:(((cur_label, init_body) :: finals) @ accu) body
   | Block xs -> pairwise ~init:accu xs
@@ -115,7 +126,7 @@ and pairwise ~init = function
   | x :: y :: xs ->
     let init_y = initial y in
     let pairs =
-      finals x |> IntSet.to_list |> List.map ~f:(fun l -> l, init_y)
+      finals x |> StmtLabelSet.to_list |> List.map ~f:(fun l -> l, init_y)
     in
     pairwise ~init:(flow ~init:(init @ pairs) x) (y :: xs)
   | [ x ] -> flow ~init x
@@ -144,6 +155,9 @@ let trivial { Arith_expr.pattern; _ } =
   | Arith_expr.Pattern.Var _ | Lit _ -> true
   | _ -> false
 ;;
+
+
+module AExpSet = Set.Make_using_comparator(Arith_expr.Labelled)
 
 let non_trivial_arith_expr assocs =
   Associations.arith_exprs assocs

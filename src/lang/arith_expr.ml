@@ -149,12 +149,17 @@ end
 (* == Integer labelled arithmetic expressions =============================== *)
 
 module Labelled = struct
-  type meta = { label : int [@compare_sexp_opaque] }
+
+  module Label = Label.Make (struct
+    type t = int [@@deriving hash, sexp_of, of_sexp, compare]
+  end)  
+
+  type meta = { label : Label.t [@compare.ignore] }
   [@@deriving sexp, hash, compare]
 
   type nonrec t = meta t
 
-  let compare x = compare compare_meta x
+  let compare (x : t) (y : t) = compare compare_meta x y
   let sexp_of_t x = sexp_of_t sexp_of_meta x
   let t_of_sexp x = t_of_sexp meta_of_sexp x
   let hash_fold_t = hash_fold_t hash_fold_meta
