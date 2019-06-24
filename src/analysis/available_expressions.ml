@@ -227,6 +227,8 @@ module Monotone_framework = struct
   let leq a b = PropertySet.is_subset b ~of_:a
   let lub a b = PropertySet.inter a b
 
+  (* == Transfer functions ================================================== *)
+
   let gen ({ Stmt.pattern; _ } : t) =
     match pattern with
     | Stmt.Pattern.If (test, _, _) | Stmt.Pattern.While (test, _) ->
@@ -248,12 +250,17 @@ module Monotone_framework = struct
     | _ -> PropertySet.empty
   ;;
 
-  let kill aexp_star ({ Stmt.pattern; _ } : t) =
+  let all_properties_of (x : t) =
+    Common.associate x |> Associations.arith_exprs |> List.map ~f:snd
+  ;;
+
+  let kill prop_star ({ Stmt.pattern; _ } : t) =
     match pattern with
     | Stmt.Pattern.Assign (x, _) ->
-      aexp_star
-      |> PropertySet.filter ~f:(fun expr ->
+      prop_star
+      |> List.filter ~f:(fun expr ->
              List.exists ~f:(fun y -> x = y) @@ vars expr)
+      |> PropertySet.of_list
     | _ -> PropertySet.empty
   ;;
 
@@ -286,24 +293,24 @@ module Monotone_framework = struct
         aexp_opt |> Option.value ~default:PropertySet.empty |> lub xs)
   ;;
 
-  let rec aux flow assocs analysis = function
+  let rec aux all_props flow assocs analysis = function
     | [] -> analysis
     | (l1, l2) :: rest ->
-      let tf_l1 = tf aexp_2_5 assocs analysis l1
+      let tf_l1 = tf all_props assocs analysis l1
       and aexp_l2 = LabelMap.find_exn analysis l2 in
       if not (leq tf_l1 aexp_l2)
       then (
         let analysis' = update_analysis analysis l2 tf_l1
         and w = enqueue l2 rest flow in
-        aux flow assocs analysis' w)
-      else aux flow assocs analysis rest
+        aux all_props flow assocs analysis' w)
+      else aux all_props flow assocs analysis rest
   ;;
 
-  let result_of_analysis flow assocs analysis =
+  let result_of_analysis all_props flow assocs analysis =
     List.map ~f:fst flow
     |> List.map ~f:(fun lbl ->
            let entry = LabelMap.find_exn analysis lbl
-           and exit = tf aexp_2_5 assocs analysis lbl in
+           and exit = tf all_props assocs analysis lbl in
            lbl, { entry; exit })
     |> LabelMap.of_alist_exn
   ;;
@@ -324,13 +331,14 @@ module Monotone_framework = struct
     and initials = extremal_labels_of x
     and extremal_value = extremal_value_of x
     and least_value = least_element_of x
-    and assocs = associations x in
+    and assocs = associations x
+    and all_props = all_properties_of x in
     let worklist = flowgraph in
     let init : PropertySet.t LabelMap.t =
       List.map ~f:(initialise initials extremal_value least_value) flowgraph
       |> LabelMap.of_alist_exn
     in
-    let analysis = aux flowgraph assocs init worklist in
-    result_of_analysis flowgraph assocs analysis
+    let analysis = aux all_props flowgraph assocs init worklist in
+    result_of_analysis all_props flowgraph assocs analysis
   ;;
 end
