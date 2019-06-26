@@ -17,7 +17,8 @@ and associate_pattern accu = function
     List.fold_right ~f:(fun x accu -> associate ~init:accu x) ~init:accu xs
 
 and associate_bool_expr
-    ?init:(accu = Associations.empty) (bool_expr : Bool_expr.Labelled.t)
+    ?init:(accu = Associations.empty)
+    (bool_expr : Bool_expr.Labelled.t)
   =
   let accu' = Associations.add_bool_expr accu bool_expr in
   associate_bool_expr_pattern accu' @@ Bool_expr.pattern bool_expr
@@ -31,7 +32,8 @@ and associate_bool_expr_pattern accu = function
     associate_arith_expr ~init:(associate_arith_expr ~init:accu a2) a1
 
 and associate_arith_expr
-    ?init:(accu = Associations.empty) (arith_expr : Arith_expr.Labelled.t)
+    ?init:(accu = Associations.empty)
+    (arith_expr : Arith_expr.Labelled.t)
   =
   Associations.add_arith_expr
     (associate_arith_expr_pattern accu @@ Arith_expr.pattern arith_expr)
