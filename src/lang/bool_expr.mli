@@ -64,6 +64,8 @@ module Fixed : sig
     :  unit Arith_expr.Fixed.t
     -> unit Arith_expr.Fixed.t
     -> (unit, unit) t
+
+  val pp_ : Format.formatter -> ('a, 'b) t -> unit
 end
 
 module Unlabelled : sig

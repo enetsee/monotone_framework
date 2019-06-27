@@ -125,6 +125,7 @@ module Fixed = struct
   let gt_ a b = gt () a b
   let lt meta a b = fix meta @@ Pattern.lt a b
   let lt_ a b = lt () a b
+  let pp_ ppf x = pp (fun _ _ -> ()) (fun _ _ -> ()) ppf x
 end
 
 (* == Boolean expressions with no meta-data ==================================*)

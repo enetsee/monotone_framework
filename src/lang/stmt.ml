@@ -90,6 +90,7 @@ module Fixed = struct
   let if__ test ts fs = if_ () test ts fs
   let while_ meta test body = fix meta @@ Pattern.while_ test body
   let while__ test body = while_ () test body
+  let pp_ ppf x = pp (fun _ _ -> ()) (fun _ _ -> ()) (fun _ _ -> ()) ppf x
 end
 
 (* == Statements without meta-data ========================================== *)

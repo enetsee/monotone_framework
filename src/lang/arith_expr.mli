@@ -39,6 +39,7 @@ module Fixed : sig
   val mult_ : unit t -> unit t -> unit t
   val div : 'a -> 'a t -> 'a t -> 'a t
   val div_ : unit t -> unit t -> unit t
+  val pp_ : Format.formatter -> 'a t -> unit
 end
 
 module Unlabelled : sig

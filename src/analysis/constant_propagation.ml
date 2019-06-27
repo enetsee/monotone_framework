@@ -11,14 +11,15 @@ module L :
   type t = Stmt.Labelled.t
   type property = Arith_expr.Labelled.t StringMap.t option
 
-  let merge p1 p2 =
-    Map.filteri p1 ~f:(fun ~key ~data ->
-        Map.find p2 key
-        |> Option.value_map ~default:false ~f:(fun x -> x = data))
+  let lub_helper s1 s2 =
+    let f ~key ~data =
+      Map.find s2 key |> Option.value_map ~default:false ~f:(fun x -> x = data)
+    in
+    Map.filteri ~f s1
   ;;
 
   let lub p1 p2 =
-    match Option.map2 p1 p2 ~f:merge with
+    match Option.map2 ~f:lub_helper p1 p2 with
     | Some _ as x -> x
     | _ -> Option.first_some p1 p2
   ;;
@@ -26,14 +27,21 @@ module L :
   let extremal_value_of _ = Some StringMap.empty
   let least_element_of _ = None
 
+  let leq_helper vs s1 s2 =
+    List.for_all vs ~f:(fun k ->
+        match Map.find s1 k, Map.find s2 k with
+        | Some x, Some y -> x = y
+        | Some _, None | None, None -> true
+        | None, Some _ -> false)
+  ;;
+
   let leq p1 p2 =
     match p1, p2 with
     | None, _ -> true
-    | Some _, None -> true
+    | Some _, None -> false
     | Some m1, Some m2 ->
-      StringMap.for_alli m1 ~f:(fun ~key ~data ->
-          StringMap.find m2 key
-          |> Option.value_map ~default:true ~f:(fun x -> x = data))
+      let vs = StringMap.keys m1 @ StringMap.keys m2 in
+      leq_helper vs m1 m2
   ;;
 end
 
@@ -78,4 +86,34 @@ let example =
           (block_ [ skip_; skip_ ])
       ]
     |> Stmt.Labelled.label)
+;;
+
+let show_env (env : Arith_expr.Labelled.t StringMap.t) =
+  StringMap.to_alist env
+  |> List.map ~f:(fun (var, aexp) ->
+         var, Fmt.to_to_string Arith_expr.Fixed.pp_ aexp)
+;;
+
+let show_property (prop : property) =
+  Option.value_map ~default:[] ~f:show_env prop
+;;
+
+let show_solution
+    (solution : property Monotone_framework.entry_exit LabelMap.t)
+  =
+  LabelMap.to_alist solution
+  |> List.map ~f:(fun (lbl, { Monotone_framework.entry; exit }) ->
+         lbl, (show_property entry, show_property exit))
+;;
+
+let show_entry (solution : property Monotone_framework.entry_exit LabelMap.t) =
+  LabelMap.to_alist solution
+  |> List.map ~f:(fun (lbl, { Monotone_framework.entry; _ }) ->
+         lbl, show_property entry)
+;;
+
+let show_exit (solution : property Monotone_framework.entry_exit LabelMap.t) =
+  LabelMap.to_alist solution
+  |> List.map ~f:(fun (lbl, { Monotone_framework.exit; _ }) ->
+         lbl, show_property exit)
 ;;

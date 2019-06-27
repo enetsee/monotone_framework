@@ -95,6 +95,7 @@ module Fixed = struct
   let mult_ a b = mult () a b
   let div meta a b = fix meta @@ Pattern.div a b
   let div_ a b = div () a b
+  let pp_ ppf x = pp (fun _ _ -> ()) ppf x
 end
 
 (* == Arithmetic expressions with no meta-data ============================== *)

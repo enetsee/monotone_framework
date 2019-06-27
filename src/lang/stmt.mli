@@ -56,6 +56,8 @@ module Fixed : sig
     :  (unit, unit) Bool_expr.Fixed.t
     -> (unit, unit, unit) t
     -> (unit, unit, unit) t
+
+  val pp_ : Format.formatter -> ('a, 'b, 'c) t -> unit
 end
 
 module Unlabelled : sig
