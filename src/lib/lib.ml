@@ -15,3 +15,4 @@ module State = State
 module Pattern_functor = Pattern_functor
 module Fix = Fix
 module Label = Label
+module Pretty = Pretty

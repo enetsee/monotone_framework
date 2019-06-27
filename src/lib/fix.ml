@@ -41,6 +41,7 @@ module Fixed = struct
     include Sexpable.S1 with type 'a t := 'a t
     include Functor.S with type 'a t := 'a t
     include Foldable.S with type 'a t := 'a t
+    include Pretty.S1 with type 'a t := 'a t
 
     module F : sig
       type nonrec 'a t = 'a t
@@ -105,6 +106,10 @@ module Fixed = struct
     let pattern { X.pattern; _ } = pattern
     let meta { X.meta; _ } = meta
     let fix meta pattern = { X.pattern; meta }
+
+    let rec pp f ppf { X.pattern; meta } =
+      Fmt.pf ppf {|%a%a|} f meta (X.Pattern.pp (pp f)) pattern
+    ;;
 
     module F = struct
       type nonrec 'a t = 'a X.t
@@ -234,6 +239,7 @@ module Fixed = struct
     include Sexpable.S2 with type ('a, 'b) t := ('a, 'b) t
     include Bifunctor.S with type ('a, 'b) t := ('a, 'b) t
     include Bifoldable.S with type ('a, 'b) t := ('a, 'b) t
+    include Pretty.S2 with type ('a, 'b) t := ('a, 'b) t
 
     module F : sig
       type nonrec ('a, 'b) t = ('a, 'b) t
@@ -311,6 +317,10 @@ module Fixed = struct
     let t_of_sexp = X.t_of_sexp
     let compare = X.compare
     let hash_fold_t = X.hash_fold_t
+
+    let rec pp f g ppf { X.pattern; meta } =
+      Fmt.pf ppf {|%a%a|} g meta (X.Pattern.pp (X.First.pp f) (pp f g)) pattern
+    ;;
 
     module F = struct
       type nonrec ('a, 'b) t = ('a, 'b) X.t
@@ -478,6 +488,7 @@ module Fixed = struct
     include Sexpable.S3 with type ('a, 'b, 'c) t := ('a, 'b, 'c) t
     include Trifunctor.S with type ('a, 'b, 'c) t := ('a, 'b, 'c) t
     include Trifoldable.S with type ('a, 'b, 'c) t := ('a, 'b, 'c) t
+    include Pretty.S3 with type ('a, 'b, 'c) t := ('a, 'b, 'c) t
 
     module F : sig
       type nonrec ('a, 'b, 'c) t = ('a, 'b, 'c) t
@@ -502,10 +513,6 @@ module Fixed = struct
       :  'c
       -> ('a First.t, ('a, 'b) Second.t, ('a, 'b, 'c) t) Pattern.t
       -> ('a, 'b, 'c) t
-
-    (* module Make_tritraversable(X: Monad.S) : Tritraversable.S with module M
-       := X and module F := F module Make_tritraversable2(X: Monad.S2) :
-       Tritraversable.S2 with module M := X and module F := F *)
 
     val trimap_pattern
       :  f:('a First.t First.Pattern.t -> 'a First.t First.Pattern.t)
@@ -580,6 +587,16 @@ module Fixed = struct
     let t_of_sexp = X.t_of_sexp
     let compare = X.compare
     let hash_fold_t = X.hash_fold_t
+
+    let rec pp f g h ppf { X.pattern; meta } =
+      Fmt.pf
+        ppf
+        {|%a%a|}
+        h
+        meta
+        (X.Pattern.pp (X.First.pp f) (X.Second.pp f g) (pp f g h))
+        pattern
+    ;;
 
     module F = struct
       type nonrec ('a, 'b, 'c) t = ('a, 'b, 'c) X.t

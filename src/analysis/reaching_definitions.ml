@@ -55,9 +55,9 @@ module Kill_gen :
   let union p1 p2 = Property.union p1 p2
 end
 
-module Transfer = Transfer_function.Make_using_kill_gen (Kill_gen)
+module TF = Transfer_function.Make_using_kill_gen (Kill_gen)
 
-module Assignments_lattice :
+module L :
   Lattice.S with type t = Stmt.Labelled.t and type property = Property.t =
 struct
   type t = Stmt.Labelled.t
@@ -81,8 +81,7 @@ struct
   ;;
 end
 
-include Monotone_framework.Make (Stmt_flowgraph.Forward) (Assignments_lattice)
-          (Transfer)
+include Monotone_framework.Make (Stmt_flowgraph.Forward) (L) (TF)
 
 let example_2_7 =
   Stmt.(

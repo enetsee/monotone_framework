@@ -9,6 +9,13 @@ type op =
   | Div
 [@@deriving compare, sexp, hash]
 
+let pp_op ppf = function
+  | Plus -> Fmt.string ppf "+"
+  | Minus -> Fmt.string ppf "-"
+  | Mult -> Fmt.string ppf "*"
+  | Div -> Fmt.string ppf "/"
+;;
+
 module Pattern = struct
   module Basic = struct
     type 'a t =
@@ -63,6 +70,13 @@ module Pattern = struct
   let minus a b = Binop (a, Minus, b)
   let mult a b = Binop (a, Mult, b)
   let div a b = Binop (a, Div, b)
+
+  let pp pp_with ppf = function
+    | Lit n -> Fmt.pf ppf {|%i|} n
+    | Var n -> Fmt.pf ppf {|%s|} n
+    | Binop (e1, op, e2) ->
+      Fmt.pf ppf {|%a %a %a|} pp_with e1 pp_op op pp_with e2
+  ;;
 end
 
 module Fixed = struct
@@ -89,10 +103,12 @@ module Unlabelled = struct
   type meta = unit [@@deriving sexp, hash, compare]
   type nonrec t = meta Fixed.t
 
+  let pp_meta _ _ = ()
   let compare x = Fixed.compare compare_meta x
   let sexp_of_t x = Fixed.sexp_of_t sexp_of_meta x
   let t_of_sexp x = Fixed.t_of_sexp meta_of_sexp x
   let hash_fold_t = Fixed.hash_fold_t hash_fold_meta
+  let pp ppf x = Fixed.pp pp_meta ppf x
 
   include Comparator.Make (struct
     type nonrec t = t
@@ -114,12 +130,15 @@ module Labelled = struct
   type meta = { label : Label.t [@compare.ignore] }
   [@@deriving sexp, hash, compare]
 
+  let pp_meta ppf { label } = Fmt.pf ppf {|%i : |} label
+
   type nonrec t = meta Fixed.t
 
   let compare x y = Fixed.compare compare_meta x y
   let sexp_of_t x = Fixed.sexp_of_t sexp_of_meta x
   let t_of_sexp x = Fixed.t_of_sexp meta_of_sexp x
   let hash_fold_t = Fixed.hash_fold_t hash_fold_meta
+  let pp ppf x = Fixed.pp pp_meta ppf x
 
   include Comparator.Make (struct
     type nonrec t = t

@@ -4,33 +4,6 @@ open Core_kernel
 type t = Stmt.Labelled.t
 type property = Arith_expr.Labelled.t StringMap.t option
 
-module Transfer :
-  Transfer_function.S
-  with type t = Stmt.Labelled.t
-   and type property = Arith_expr.Labelled.t StringMap.t option = struct
-  type t = Stmt.Labelled.t
-  type property = Arith_expr.Labelled.t StringMap.t option
-
-  let all_properties_of _ = None
-
-  let is_literal { Arith_expr.Fixed.pattern; _ } =
-    match pattern with
-    | Lit _ -> true
-    | _ -> false
-  ;;
-
-  let apply (_ : property) (t : t) (property : property) : property =
-    Option.map property ~f:(fun env ->
-        match Stmt.Fixed.pattern t with
-        | Assign (vbl, aexpr) ->
-          (match Partial_evaluation.eval_arith_expr ~env aexpr with
-          | aexpr' when is_literal aexpr' ->
-            StringMap.set env ~key:vbl ~data:aexpr'
-          | _ -> StringMap.remove env vbl)
-        | _ -> env)
-  ;;
-end
-
 module L :
   Lattice.S
   with type t = Stmt.Labelled.t
@@ -64,7 +37,34 @@ module L :
   ;;
 end
 
-include Monotone_framework.Make (Stmt_flowgraph.Forward) (L) (Transfer)
+module TF :
+  Transfer_function.S
+  with type t = Stmt.Labelled.t
+   and type property = Arith_expr.Labelled.t StringMap.t option = struct
+  type t = Stmt.Labelled.t
+  type property = Arith_expr.Labelled.t StringMap.t option
+
+  let all_properties_of _ = None
+
+  let is_literal { Arith_expr.Fixed.pattern; _ } =
+    match pattern with
+    | Lit _ -> true
+    | _ -> false
+  ;;
+
+  let apply (_ : property) (t : t) (property : property) : property =
+    Option.map property ~f:(fun env ->
+        match Stmt.Fixed.pattern t with
+        | Assign (vbl, aexpr) ->
+          (match Partial_evaluation.eval_arith_expr ~env aexpr with
+          | aexpr' when is_literal aexpr' ->
+            StringMap.set env ~key:vbl ~data:aexpr'
+          | _ -> StringMap.remove env vbl)
+        | _ -> env)
+  ;;
+end
+
+include Monotone_framework.Make (Stmt_flowgraph.Forward) (L) (TF)
 
 let example =
   Stmt.Fixed.(

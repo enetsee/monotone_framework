@@ -14,6 +14,7 @@ module type S = sig
   include Functor.S with type 'a t := 'a t
   include Foldable.S with type 'a t := 'a t
   include Sexpable.S1 with type 'a t := 'a t
+  include Pretty.S1 with type 'a t := 'a t
 
   module F : sig
     type nonrec 'a t = 'a t
@@ -49,6 +50,7 @@ module type S2 = sig
   include Bifunctor.S with type ('a, 'b) t := ('a, 'b) t
   include Bifoldable.S with type ('a, 'b) t := ('a, 'b) t
   include Sexpable.S2 with type ('a, 'b) t := ('a, 'b) t
+  include Pretty.S2 with type ('a, 'b) t := ('a, 'b) t
 
   module F : sig
     type nonrec ('a, 'b) t = ('a, 'b) t
@@ -86,6 +88,7 @@ module type S3 = sig
   include Trifunctor.S with type ('a, 'b, 'c) t := ('a, 'b, 'c) t
   include Trifoldable.S with type ('a, 'b, 'c) t := ('a, 'b, 'c) t
   include Sexpable.S3 with type ('a, 'b, 'c) t := ('a, 'b, 'c) t
+  include Pretty.S3 with type ('a, 'b, 'c) t := ('a, 'b, 'c) t
 
   module F : sig
     type nonrec ('a, 'b, 'c) t = ('a, 'b, 'c) t

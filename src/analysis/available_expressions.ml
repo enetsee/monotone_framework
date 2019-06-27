@@ -58,9 +58,9 @@ module KillGen :
   let union = Property.union
 end
 
-module Transfer = Transfer_function.Make_using_kill_gen (KillGen)
+module TF = Transfer_function.Make_using_kill_gen (KillGen)
 
-module Arith_expr_lattice :
+module L :
   Lattice.S with type t = Stmt.Labelled.t and type property = Property.t =
 struct
   type t = Stmt.Labelled.t
@@ -78,8 +78,7 @@ struct
   let lub a b = Property.inter a b
 end
 
-include Monotone_framework.Make (Stmt_flowgraph.Forward) (Arith_expr_lattice)
-          (Transfer)
+include Monotone_framework.Make (Stmt_flowgraph.Forward) (L) (TF)
 
 let example_2_5 =
   Stmt.(

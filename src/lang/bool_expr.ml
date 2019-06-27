@@ -7,11 +7,22 @@ type bool_op =
   | Or
 [@@deriving compare, sexp, hash]
 
+let pp_bool_op ppf = function
+  | And -> Fmt.string ppf "&&"
+  | Or -> Fmt.string ppf "||"
+;;
+
 type rel_op =
   | Eq
   | Gt
   | Lt
 [@@deriving compare, sexp, hash]
+
+let pp_rel_op ppf = function
+  | Eq -> Fmt.string ppf "="
+  | Gt -> Fmt.string ppf ">"
+  | Lt -> Fmt.string ppf "<"
+;;
 
 module Pattern = struct
   module Basic = struct
@@ -82,6 +93,16 @@ module Pattern = struct
   let eq a b = Relop (a, Eq, b)
   let gt a b = Relop (a, Gt, b)
   let lt a b = Relop (a, Lt, b)
+
+  let pp pp_first pp_second ppf = function
+    | True -> Fmt.string ppf "true"
+    | False -> Fmt.string ppf "false"
+    | Not b -> Fmt.pf ppf {|!%a|} (Fmt.parens pp_second) b
+    | Boolop (b1, op, b2) ->
+      Fmt.pf ppf {|%a %a %a|} pp_second b1 pp_bool_op op pp_second b2
+    | Relop (a1, op, a2) ->
+      Fmt.pf ppf {|%a %a %a|} pp_first a1 pp_rel_op op pp_first a2
+  ;;
 end
 
 module Fixed = struct
@@ -112,6 +133,8 @@ module Unlabelled = struct
   type meta = unit [@@deriving compare, hash, sexp]
   type nonrec t = (Arith_expr.Unlabelled.meta, meta) Fixed.t
 
+  let pp_meta _ _ = ()
+
   let compare x =
     Fixed.compare Arith_expr.Unlabelled.compare_meta compare_meta x
   ;;
@@ -127,6 +150,8 @@ module Unlabelled = struct
   let hash_fold_t =
     Fixed.hash_fold_t Arith_expr.Unlabelled.hash_fold_meta hash_fold_meta
   ;;
+
+  let pp = Fixed.pp Arith_expr.Unlabelled.pp_meta pp_meta
 
   include Comparator.Make (struct
     type nonrec t = t
@@ -150,6 +175,8 @@ module Labelled = struct
   type meta = { label : Label.t [@compare.ignore] }
   [@@deriving compare, hash, sexp]
 
+  let pp_meta ppf { label } = Fmt.pf ppf {|%i : |} label
+
   type nonrec t = (Arith_expr.Labelled.meta, meta) Fixed.t
 
   let compare x y =
@@ -167,6 +194,8 @@ module Labelled = struct
   let hash_fold_t =
     Fixed.hash_fold_t Arith_expr.Labelled.hash_fold_meta hash_fold_meta
   ;;
+
+  let pp = Fixed.pp Arith_expr.Labelled.pp_meta pp_meta
 
   include Comparator.Make (struct
     type nonrec t = t

@@ -1,4 +1,5 @@
 open Core_kernel
+open Lib
 
 type op =
   | Plus
@@ -13,7 +14,7 @@ module Pattern : sig
     | Var of string
     | Binop of 'a * op * 'a
 
-  include Lib.Pattern_functor.S with type 'a t := 'a t
+  include Pattern_functor.S with type 'a t := 'a t
 
   val lit : int -> 'a t
   val var : string -> 'a t
@@ -24,7 +25,7 @@ module Pattern : sig
 end
 
 module Fixed : sig
-  include Lib.Fix.S with module Pattern = Pattern
+  include Fix.S with module Pattern = Pattern
 
   val lit : 'a -> int -> 'a t
   val lit_ : int -> unit t
@@ -44,8 +45,11 @@ module Unlabelled : sig
   type meta = unit [@@deriving compare, sexp, hash]
   type nonrec t = meta Fixed.t
 
+  val pp_meta : Format.formatter -> meta -> unit
+
   include Sexpable.S with type t := t
   include Comparator.S with type t := t
+  include Pretty.S with type t := t
 
   val hash_fold_t : Hash.state -> t -> Hash.state
   val unlabel : 'a Fixed.t -> t
@@ -57,10 +61,13 @@ module Labelled : sig
   type meta = { label : Label.t [@compare.ignore] }
   [@@deriving compare, sexp, hash]
 
+  val pp_meta : Format.formatter -> meta -> unit
+
   type nonrec t = meta Fixed.t
 
   include Sexpable.S with type t := t
   include Comparator.S with type t := t
+  include Pretty.S with type t := t
 
   val hash_fold_t : Hash.state -> t -> Hash.state
   val label : 'a Fixed.t -> t

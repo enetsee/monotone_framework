@@ -61,11 +61,14 @@ end
 module Unlabelled : sig
   type meta = unit [@@deriving compare, hash, sexp]
 
+  val pp_meta : Format.formatter -> meta -> unit
+
   type nonrec t =
     (Arith_expr.Unlabelled.meta, Bool_expr.Unlabelled.meta, meta) Fixed.t
 
   include Sexpable.S with type t := t
   include Comparator.S with type t := t
+  include Pretty.S with type t := t
 
   val hash_fold_t : Hash.state -> t -> Hash.state
   val unlabel : ('a, 'b, 'c) Fixed.t -> t
@@ -77,11 +80,14 @@ module Labelled : sig
   type meta = { label : Label.t [@compare.ignore] }
   [@@deriving compare, hash, sexp]
 
+  val pp_meta : Format.formatter -> meta -> unit
+
   type nonrec t =
     (Arith_expr.Labelled.meta, Bool_expr.Labelled.meta, meta) Fixed.t
 
   include Sexpable.S with type t := t
   include Comparator.S with type t := t
+  include Pretty.S with type t := t
 
   val hash_fold_t : Hash.state -> t -> Hash.state
   val label : ('a, 'b, 'c) Fixed.t -> t

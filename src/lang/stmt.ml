@@ -64,6 +64,16 @@ module Pattern = struct
         M.(g test >>= fun test' -> h body |> map ~f:(while_ test'))
     ;;
   end
+
+  let pp pp_first pp_second pp_third ppf = function
+    | Assign (name, a) -> Fmt.pf ppf "%s := %a;" name pp_first a
+    | Skip -> Fmt.string ppf "skip;"
+    | If (b, tc, fc) ->
+      Fmt.pf ppf "if (%a) %a %a" pp_second b pp_third tc pp_third fc
+    | While (b, c) -> Fmt.pf ppf "while (%a) %a" pp_second b pp_third c
+    | Block cs ->
+      Fmt.pf ppf {|{@;<1 2>@[<v>%a@]@;}|} Fmt.(list pp_third ~sep:Fmt.cut) cs
+  ;;
 end
 
 module Fixed = struct
@@ -85,6 +95,8 @@ end
 (* == Statements without meta-data ========================================== *)
 module Unlabelled = struct
   type meta = unit [@@deriving compare, hash, sexp]
+
+  let pp_meta _ _ = ()
 
   type nonrec t =
     (Arith_expr.Unlabelled.meta, Bool_expr.Unlabelled.meta, meta) Fixed.t
@@ -123,6 +135,10 @@ module Unlabelled = struct
       x
   ;;
 
+  let pp =
+    Fixed.pp Arith_expr.Unlabelled.pp_meta Bool_expr.Unlabelled.pp_meta pp_meta
+  ;;
+
   include Comparator.Make (struct
     type nonrec t = t
 
@@ -144,6 +160,8 @@ module Labelled = struct
 
   type meta = { label : Label.t [@compare.ignore] }
   [@@deriving compare, hash, sexp]
+
+  let pp_meta ppf { label } = Fmt.pf ppf {|%i : |} label
 
   type nonrec t =
     (Arith_expr.Labelled.meta, Bool_expr.Labelled.meta, meta) Fixed.t
@@ -180,6 +198,10 @@ module Labelled = struct
       hash_fold_meta
       state
       x
+  ;;
+
+  let pp =
+    Fixed.pp Arith_expr.Labelled.pp_meta Bool_expr.Labelled.pp_meta pp_meta
   ;;
 
   include Comparator.Make (struct
