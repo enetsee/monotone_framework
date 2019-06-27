@@ -13,7 +13,7 @@ module Transfer :
 
   let all_properties_of _ = None
 
-  let is_literal { Arith_expr.pattern; _ } =
+  let is_literal { Arith_expr.Fixed.pattern; _ } =
     match pattern with
     | Lit _ -> true
     | _ -> false
@@ -21,8 +21,8 @@ module Transfer :
 
   let apply (_ : property) (t : t) (property : property) : property =
     Option.map property ~f:(fun env ->
-        match Stmt.pattern t with
-        | Stmt.Pattern.Assign (vbl, aexpr) ->
+        match Stmt.Fixed.pattern t with
+        | Assign (vbl, aexpr) ->
           (match Partial_evaluation.eval_arith_expr ~env aexpr with
           | aexpr' when is_literal aexpr' ->
             StringMap.set env ~key:vbl ~data:aexpr'
@@ -67,14 +67,15 @@ end
 include Monotone_framework.Make (Stmt_flowgraph.Forward) (L) (Transfer)
 
 let example =
-  Stmt.(
+  Stmt.Fixed.(
     block_
-      [ assign_ "x" Arith_expr.(plus_ (lit_ 2) (lit_ 2))
-      ; assign_ "y" Arith_expr.(mult_ (lit_ 1) (var_ "x"))
-      ; assign_ "z" Arith_expr.(lit_ 4)
+      [ assign_ "x" Arith_expr.Fixed.(plus_ (lit_ 2) (lit_ 2))
+      ; assign_ "y" Arith_expr.Fixed.(mult_ (lit_ 1) (var_ "x"))
+      ; assign_ "z" Arith_expr.Fixed.(lit_ 4)
       ; while__
-          Bool_expr.(gt_ Arith_expr.(var_ "z") Arith_expr.(var_ "y"))
+          Bool_expr.Fixed.(
+            gt_ Arith_expr.Fixed.(var_ "z") Arith_expr.Fixed.(var_ "y"))
           (block_ [ skip_; skip_ ])
       ]
-    |> Labelled.label)
+    |> Stmt.Labelled.label)
 ;;

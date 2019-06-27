@@ -4,7 +4,7 @@ open Lang
 (** Construct maps from labels to expressions and statements *)
 let rec associate ?init:(accu = Associations.empty) (stmt : Stmt.Labelled.t) =
   let accu' = Associations.add_stmt accu stmt in
-  associate_pattern accu' @@ Stmt.pattern stmt
+  associate_pattern accu' @@ Stmt.Fixed.pattern stmt
 
 and associate_pattern accu = function
   | Stmt.Pattern.Assign (_, a) -> associate_arith_expr ~init:accu a
@@ -21,7 +21,7 @@ and associate_bool_expr
     (bool_expr : Bool_expr.Labelled.t)
   =
   let accu' = Associations.add_bool_expr accu bool_expr in
-  associate_bool_expr_pattern accu' @@ Bool_expr.pattern bool_expr
+  associate_bool_expr_pattern accu' @@ Bool_expr.Fixed.pattern bool_expr
 
 and associate_bool_expr_pattern accu = function
   | True | False -> accu
@@ -36,7 +36,7 @@ and associate_arith_expr
     (arith_expr : Arith_expr.Labelled.t)
   =
   Associations.add_arith_expr
-    (associate_arith_expr_pattern accu @@ Arith_expr.pattern arith_expr)
+    (associate_arith_expr_pattern accu @@ Arith_expr.Fixed.pattern arith_expr)
     arith_expr
 
 and associate_arith_expr_pattern accu = function
@@ -50,7 +50,7 @@ module StmtLabelSet = Set.Make_using_comparator (Stmt.Labelled.Label)
 (** Determine the set of labels for a labelled statement *)
 let rec labels ?init:(accu = StmtLabelSet.empty) stmt =
   let label = Stmt.Labelled.label_of stmt in
-  labels_pattern label accu @@ Stmt.pattern stmt
+  labels_pattern label accu @@ Stmt.Fixed.pattern stmt
 
 and labels_pattern cur_label accu = function
   | Stmt.Pattern.Assign _ | Skip -> StmtLabelSet.add accu cur_label
@@ -77,7 +77,7 @@ let labelled_blocks assocs labels =
 (** Get the lables of the initial statement in a statement *)
 let rec initial stmt =
   let label = Stmt.Labelled.label_of stmt in
-  initial_pattern label @@ Stmt.pattern stmt
+  initial_pattern label @@ Stmt.Fixed.pattern stmt
 
 and initial_pattern cur_label = function
   | Stmt.Pattern.Assign _ | Skip | If (_, _, _) | While (_, _) -> cur_label
@@ -87,7 +87,7 @@ and initial_pattern cur_label = function
 (** Get the labels of the possible final statements in a statement *)
 let rec finals ?init:(accu = StmtLabelSet.empty) stmt =
   let label = Stmt.Labelled.label_of stmt in
-  final_pattern label accu @@ Stmt.pattern stmt
+  final_pattern label accu @@ Stmt.Fixed.pattern stmt
 
 and final_pattern cur_label accu = function
   | Stmt.Pattern.Assign _ | Skip -> StmtLabelSet.add accu cur_label
@@ -102,7 +102,7 @@ and final_pattern cur_label accu = function
 (** Build the flowgraph of a statment in terms of `initial` and `finals` *)
 let rec flow ?init:(accu = []) stmt =
   let label = Stmt.Labelled.label_of stmt in
-  flow_pattern label accu @@ Stmt.pattern stmt
+  flow_pattern label accu @@ Stmt.Fixed.pattern stmt
 
 and flow_pattern cur_label accu = function
   | Stmt.Pattern.Assign _ | Skip -> accu
@@ -139,7 +139,7 @@ let vars ?init:(accu = []) expr =
     | Arith_expr.Pattern.Var n -> n :: accu
     | _ -> accu
   in
-  Arith_expr.fold_left_pattern ~f ~init:accu expr
+  Arith_expr.Fixed.fold_left_pattern ~f ~init:accu expr
 ;;
 
 let vars_pattern ?init:(accu = []) expr =
@@ -150,7 +150,7 @@ let vars_pattern ?init:(accu = []) expr =
 ;;
 
 (** The non-trivial arithmetic expressions in a statement *)
-let trivial { Arith_expr.pattern; _ } =
+let trivial { Arith_expr.Fixed.pattern; _ } =
   match pattern with
   | Arith_expr.Pattern.Var _ | Lit _ -> true
   | _ -> false

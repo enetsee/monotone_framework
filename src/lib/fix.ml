@@ -42,6 +42,19 @@ module Fixed = struct
     include Functor.S with type 'a t := 'a t
     include Foldable.S with type 'a t := 'a t
 
+    module F : sig
+      type nonrec 'a t = 'a t
+
+      include Functor.S with type 'a t := 'a t
+      include Foldable.S with type 'a t := 'a t
+    end
+
+    module Make_traversable (M : Monad.S) :
+      Traversable.S with module M := M and module F = F
+
+    module Make_traversable2 (M : Monad.S2) :
+      Traversable.S2 with module M := M and module F = F
+
     val pattern : 'a t -> 'a t Pattern.t
     val meta : 'a t -> 'a
     val fix : 'a -> 'a t Pattern.t -> 'a t
@@ -77,6 +90,94 @@ module Fixed = struct
       -> ?init:bool
       -> 'a t
       -> bool
+  end
+
+  module Make (X : Basic) :
+    S with module Pattern := X.Pattern and type 'a t := 'a X.t = struct
+    let map = X.map
+
+    include Foldable.Make (X)
+
+    let sexp_of_t = X.sexp_of_t
+    let t_of_sexp = X.t_of_sexp
+    let compare = X.compare
+    let hash_fold_t = X.hash_fold_t
+    let pattern { X.pattern; _ } = pattern
+    let meta { X.meta; _ } = meta
+    let fix meta pattern = { X.pattern; meta }
+
+    module F = struct
+      type nonrec 'a t = 'a X.t
+
+      let map = map
+
+      include Foldable.Make (X)
+    end
+
+    module Make_traversable (M : Monad.S) :
+      Traversable.S with module M := M and module F = F = struct
+      module F = F
+      module TraversablePattern = X.Pattern.Make_traversable (M)
+
+      let rec traverse ~f { X.pattern; meta } =
+        M.(
+          f meta
+          >>= fun meta' ->
+          TraversablePattern.traverse ~f:(traverse ~f) pattern
+          >>= fun pattern' -> return @@ { meta = meta'; X.pattern = pattern' })
+      ;;
+    end
+
+    module Make_traversable2 (M : Monad.S2) :
+      Traversable.S2 with module M := M and module F = F = struct
+      module F = F
+      module TraversablePattern = X.Pattern.Make_traversable2 (M)
+
+      let rec traverse ~f { X.pattern; meta } =
+        M.(
+          f meta
+          >>= fun meta' ->
+          TraversablePattern.traverse ~f:(traverse ~f) pattern
+          >>= fun pattern' -> return @@ { meta = meta'; X.pattern = pattern' })
+      ;;
+    end
+
+    let rec map_pattern ~f { X.pattern; meta } =
+      { X.pattern = f @@ X.Pattern.map ~f:(map_pattern ~f) pattern; meta }
+    ;;
+
+    let rec fold_left_pattern ~f ~init { X.pattern; _ } =
+      X.Pattern.fold_left
+        ~f:(fun accu x -> fold_left_pattern ~f ~init:accu x)
+        ~init:(f init pattern)
+        pattern
+    ;;
+
+    let rec fold_right_pattern ~f ~init { X.pattern; _ } =
+      f pattern
+      @@ X.Pattern.fold_right
+           ~f:(fun x accu -> fold_right_pattern ~f ~init:accu x)
+           ~init
+           pattern
+    ;;
+
+    let fold_map_pattern
+        (type a)
+        (module M : Monoid.S with type t = a)
+        ~f
+        ?init:(empty = M.empty)
+        x
+      =
+      fold_right_pattern ~f:(fun x accu -> M.combine accu @@ f x) ~init:empty x
+    ;;
+
+    let any_pattern ~pred ?init x =
+      fold_map_pattern (module Monoid.Bool_or) ~f:pred ?init x
+    ;;
+
+    let all_pattern ~pred ?init x =
+      fold_map_pattern (module Monoid.Bool_and) ~f:pred ?init x
+    ;;
   end
 
   module type Basic2 = sig
@@ -134,6 +235,19 @@ module Fixed = struct
     include Bifunctor.S with type ('a, 'b) t := ('a, 'b) t
     include Bifoldable.S with type ('a, 'b) t := ('a, 'b) t
 
+    module F : sig
+      type nonrec ('a, 'b) t = ('a, 'b) t
+
+      include Bifunctor.S with type ('a, 'b) t := ('a, 'b) t
+      include Bifoldable.S with type ('a, 'b) t := ('a, 'b) t
+    end
+
+    module Make_bitraversable (M : Monad.S) :
+      Bitraversable.S with module M := M and module F = F
+
+    module Make_bitraversable2 (M : Monad.S2) :
+      Bitraversable.S2 with module M := M and module F = F
+
     val pattern : ('a, 'b) t -> ('a First.t, ('a, 'b) t) Pattern.t
     val meta : ('a, 'b) t -> 'b
     val fix : 'b -> ('a First.t, ('a, 'b) t) Pattern.t -> ('a, 'b) t
@@ -180,6 +294,127 @@ module Fixed = struct
       -> ?init:bool
       -> ('a, 'b) t
       -> bool
+  end
+
+  module Make2 (X : Basic2) :
+    S2
+    with module Pattern := X.Pattern
+     and module First := X.First
+     and type ('a, 'b) t := ('a, 'b) X.t = struct
+    include Bifunctor.Make (X)
+    include Bifoldable.Make (X)
+
+    let pattern { X.pattern; _ } = pattern
+    let meta { X.meta; _ } = meta
+    let fix meta pattern = { X.pattern; meta }
+    let sexp_of_t = X.sexp_of_t
+    let t_of_sexp = X.t_of_sexp
+    let compare = X.compare
+    let hash_fold_t = X.hash_fold_t
+
+    module F = struct
+      type nonrec ('a, 'b) t = ('a, 'b) X.t
+
+      include Bifunctor.Make (X)
+      include Bifoldable.Make (X)
+    end
+
+    module Make_bitraversable (M : Monad.S) :
+      Bitraversable.S with module M := M and module F = F = struct
+      module F = F
+      module BitraversablePattern = X.Pattern.Make_bitraversable (M)
+      module TraversableArithExpr = X.First.Make_traversable (M)
+
+      let rec bitraverse ~f ~g { X.pattern; meta } =
+        M.(
+          g meta
+          >>= fun meta' ->
+          BitraversablePattern.bitraverse
+            ~f:(TraversableArithExpr.traverse ~f)
+            ~g:(bitraverse ~f ~g)
+            pattern
+          >>= fun pattern' -> return @@ { X.pattern = pattern'; meta = meta' })
+      ;;
+    end
+
+    module Make_bitraversable2 (M : Monad.S2) :
+      Bitraversable.S2 with module M := M and module F = F = struct
+      module F = F
+      module BitraversablePattern = X.Pattern.Make_bitraversable2 (M)
+      module TraversableArithExpr = X.First.Make_traversable2 (M)
+
+      let rec bitraverse ~f ~g { X.pattern; meta } =
+        M.(
+          g meta
+          >>= fun meta' ->
+          BitraversablePattern.bitraverse
+            ~f:(TraversableArithExpr.traverse ~f)
+            ~g:(bitraverse ~f ~g)
+            pattern
+          >>= fun pattern' -> return @@ { X.pattern = pattern'; meta = meta' })
+      ;;
+    end
+
+    let rec bimap_pattern ~f ~g { X.pattern; meta } =
+      { X.pattern =
+          g
+          @@ X.Pattern.bimap
+               ~f:(X.First.map_pattern ~f)
+               ~g:(bimap_pattern ~f ~g)
+               pattern
+      ; meta
+      }
+    ;;
+
+    let rec bifold_left_pattern ~f ~g ~init { X.pattern; _ } =
+      X.Pattern.bifold_left
+        ~f:(fun accu x -> X.First.fold_left_pattern ~f ~init:accu x)
+        ~g:(fun accu x -> bifold_left_pattern ~f ~g ~init:accu x)
+        ~init:(g init pattern)
+        pattern
+    ;;
+
+    let rec bifold_right_pattern ~f ~g ~init { X.pattern; _ } =
+      X.Pattern.bifold_right
+        ~f:(fun x accu -> X.First.fold_right_pattern ~f ~init:accu x)
+        ~g:(fun x accu -> bifold_right_pattern ~f ~g ~init:accu x)
+        ~init
+        pattern
+      |> g pattern
+    ;;
+
+    let bifold_map_pattern
+        (type a)
+        (module M : Monoid.S with type t = a)
+        ~f
+        ~g
+        ?init:(empty = M.empty)
+        x
+      =
+      bifold_right_pattern
+        ~f:(fun x accu -> M.combine accu @@ f x)
+        ~g:(fun x accu -> M.combine accu @@ g x)
+        ~init:empty
+        x
+    ;;
+
+    let biany_pattern ~pred_first ~pred_second ?init x =
+      bifold_map_pattern
+        (module Monoid.Bool_or)
+        ~f:pred_first
+        ~g:pred_second
+        ?init
+        x
+    ;;
+
+    let biall_pattern ~pred_first ~pred_second ?init x =
+      bifold_map_pattern
+        (module Monoid.Bool_and)
+        ~f:pred_first
+        ~g:pred_second
+        ?init
+        x
+    ;;
   end
 
   (* This _is_ ridiculous - luckily we don't need this in stanc3 *)
@@ -243,6 +478,19 @@ module Fixed = struct
     include Sexpable.S3 with type ('a, 'b, 'c) t := ('a, 'b, 'c) t
     include Trifunctor.S with type ('a, 'b, 'c) t := ('a, 'b, 'c) t
     include Trifoldable.S with type ('a, 'b, 'c) t := ('a, 'b, 'c) t
+
+    module F : sig
+      type nonrec ('a, 'b, 'c) t = ('a, 'b, 'c) t
+
+      include Trifunctor.S with type ('a, 'b, 'c) t := ('a, 'b, 'c) t
+      include Trifoldable.S with type ('a, 'b, 'c) t := ('a, 'b, 'c) t
+    end
+
+    module Make_tritraversable (M : Monad.S) :
+      Tritraversable.S with module M := M and module F = F
+
+    module Make_tritraversable2 (M : Monad.S2) :
+      Tritraversable.S2 with module M := M and module F = F
 
     val pattern
       :  ('a, 'b, 'c) t
@@ -316,136 +564,6 @@ module Fixed = struct
       -> bool
   end
 
-  module Make (X : Basic) :
-    S with module Pattern := X.Pattern and type 'a t := 'a X.t = struct
-    let map = X.map
-
-    include Foldable.Make (X)
-
-    let sexp_of_t = X.sexp_of_t
-    let t_of_sexp = X.t_of_sexp
-    let compare = X.compare
-    let hash_fold_t = X.hash_fold_t
-    let pattern { X.pattern; _ } = pattern
-    let meta { X.meta; _ } = meta
-    let fix meta pattern = { X.pattern; meta }
-
-    let rec map_pattern ~f { X.pattern; meta } =
-      { X.pattern = f @@ X.Pattern.map ~f:(map_pattern ~f) pattern; meta }
-    ;;
-
-    let rec fold_left_pattern ~f ~init { X.pattern; _ } =
-      X.Pattern.fold_left
-        ~f:(fun accu x -> fold_left_pattern ~f ~init:accu x)
-        ~init:(f init pattern)
-        pattern
-    ;;
-
-    let rec fold_right_pattern ~f ~init { X.pattern; _ } =
-      f pattern
-      @@ X.Pattern.fold_right
-           ~f:(fun x accu -> fold_right_pattern ~f ~init:accu x)
-           ~init
-           pattern
-    ;;
-
-    let fold_map_pattern
-        (type a)
-        (module M : Monoid.S with type t = a)
-        ~f
-        ?init:(empty = M.empty)
-        x
-      =
-      fold_right_pattern ~f:(fun x accu -> M.combine accu @@ f x) ~init:empty x
-    ;;
-
-    let any_pattern ~pred ?init x =
-      fold_map_pattern (module Monoid.Bool_or) ~f:pred ?init x
-    ;;
-
-    let all_pattern ~pred ?init x =
-      fold_map_pattern (module Monoid.Bool_and) ~f:pred ?init x
-    ;;
-  end
-
-  module Make2 (X : Basic2) :
-    S2
-    with module Pattern := X.Pattern
-     and module First := X.First
-     and type ('a, 'b) t := ('a, 'b) X.t = struct
-    include Bifunctor.Make (X)
-    include Bifoldable.Make (X)
-
-    let pattern { X.pattern; _ } = pattern
-    let meta { X.meta; _ } = meta
-    let fix meta pattern = { X.pattern; meta }
-    let sexp_of_t = X.sexp_of_t
-    let t_of_sexp = X.t_of_sexp
-    let compare = X.compare
-    let hash_fold_t = X.hash_fold_t
-
-    let rec bimap_pattern ~f ~g { X.pattern; meta } =
-      { X.pattern =
-          g
-          @@ X.Pattern.bimap
-               ~f:(X.First.map_pattern ~f)
-               ~g:(bimap_pattern ~f ~g)
-               pattern
-      ; meta
-      }
-    ;;
-
-    let rec bifold_left_pattern ~f ~g ~init { X.pattern; _ } =
-      X.Pattern.bifold_left
-        ~f:(fun accu x -> X.First.fold_left_pattern ~f ~init:accu x)
-        ~g:(fun accu x -> bifold_left_pattern ~f ~g ~init:accu x)
-        ~init:(g init pattern)
-        pattern
-    ;;
-
-    let rec bifold_right_pattern ~f ~g ~init { X.pattern; _ } =
-      X.Pattern.bifold_right
-        ~f:(fun x accu -> X.First.fold_right_pattern ~f ~init:accu x)
-        ~g:(fun x accu -> bifold_right_pattern ~f ~g ~init:accu x)
-        ~init
-        pattern
-      |> g pattern
-    ;;
-
-    let bifold_map_pattern
-        (type a)
-        (module M : Monoid.S with type t = a)
-        ~f
-        ~g
-        ?init:(empty = M.empty)
-        x
-      =
-      bifold_right_pattern
-        ~f:(fun x accu -> M.combine accu @@ f x)
-        ~g:(fun x accu -> M.combine accu @@ g x)
-        ~init:empty
-        x
-    ;;
-
-    let biany_pattern ~pred_first ~pred_second ?init x =
-      bifold_map_pattern
-        (module Monoid.Bool_or)
-        ~f:pred_first
-        ~g:pred_second
-        ?init
-        x
-    ;;
-
-    let biall_pattern ~pred_first ~pred_second ?init x =
-      bifold_map_pattern
-        (module Monoid.Bool_and)
-        ~f:pred_first
-        ~g:pred_second
-        ?init
-        x
-    ;;
-  end
-
   module Make3 (X : Basic3) :
     S3
     with module First := X.First
@@ -462,6 +580,53 @@ module Fixed = struct
     let t_of_sexp = X.t_of_sexp
     let compare = X.compare
     let hash_fold_t = X.hash_fold_t
+
+    module F = struct
+      type nonrec ('a, 'b, 'c) t = ('a, 'b, 'c) X.t
+
+      include Trifunctor.Make (X)
+      include Trifoldable.Make (X)
+    end
+
+    module Make_tritraversable (M : Monad.S) :
+      Tritraversable.S with module M := M and module F = F = struct
+      module F = F
+      module TritraversablePattern = X.Pattern.Make_tritraversable (M)
+      module BitraversableBoolExpr = X.Second.Make_bitraversable (M)
+      module TraversableArithExpr = X.First.Make_traversable (M)
+
+      let rec tritraverse ~f ~g ~h { X.pattern; meta } =
+        M.(
+          h meta
+          >>= fun meta' ->
+          TritraversablePattern.tritraverse
+            ~f:(TraversableArithExpr.traverse ~f)
+            ~g:(BitraversableBoolExpr.bitraverse ~f ~g)
+            ~h:(tritraverse ~f ~g ~h)
+            pattern
+          >>= fun pattern' -> return @@ { X.pattern = pattern'; meta = meta' })
+      ;;
+    end
+
+    module Make_tritraversable2 (M : Monad.S2) :
+      Tritraversable.S2 with module M := M and module F = F = struct
+      module F = F
+      module TritraversablePattern = X.Pattern.Make_tritraversable2 (M)
+      module BitraversableBoolExpr = X.Second.Make_bitraversable2 (M)
+      module TraversableArithExpr = X.First.Make_traversable2 (M)
+
+      let rec tritraverse ~f ~g ~h { X.pattern; meta } =
+        M.(
+          h meta
+          >>= fun meta' ->
+          TritraversablePattern.tritraverse
+            ~f:(TraversableArithExpr.traverse ~f)
+            ~g:(BitraversableBoolExpr.bitraverse ~f ~g)
+            ~h:(tritraverse ~f ~g ~h)
+            pattern
+          >>= fun pattern' -> return @@ { X.pattern = pattern'; meta = meta' })
+      ;;
+    end
 
     let rec trimap_pattern ~f ~g ~h { X.pattern; meta } =
       { X.pattern =

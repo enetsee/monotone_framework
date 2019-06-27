@@ -1,5 +1,5 @@
 open Lang
 
-let test = Arith_expr.var_ "x"
+let test = Arith_expr.Fixed.var_ "x"
 let main () = ()
 let () = main ()

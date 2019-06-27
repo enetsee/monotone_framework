@@ -17,7 +17,7 @@ module KillGen :
   type t = Stmt.Labelled.t
   type property = Property.t
 
-  let gen { Stmt.pattern; _ } =
+  let gen { Stmt.Fixed.pattern; _ } =
     match pattern with
     | Stmt.Pattern.If (test, _, _) | Stmt.Pattern.While (test, _) ->
       Common.associate_bool_expr test
@@ -45,9 +45,9 @@ module KillGen :
     |> Property.of_list
   ;;
 
-  let kill prop_star { Stmt.pattern; _ } =
+  let kill prop_star { Stmt.Fixed.pattern; _ } =
     match pattern with
-    | Stmt.Pattern.Assign (x, _) ->
+    | Assign (x, _) ->
       prop_star
       |> Property.filter ~f:(fun expr ->
              List.exists ~f:(fun y -> x = y) @@ vars expr)
@@ -83,16 +83,19 @@ include Monotone_framework.Make (Stmt_flowgraph.Forward) (Arith_expr_lattice)
 
 let example_2_5 =
   Stmt.(
-    block_
-      [ assign_ "x" Arith_expr.(plus_ (var_ "a") (var_ "b"))
-      ; assign_ "y" Arith_expr.(mult_ (var_ "a") (var_ "b"))
-      ; while__
-          Bool_expr.(
-            gt_ (Arith_expr.var_ "y") Arith_expr.(plus_ (var_ "a") (var_ "b")))
-          (block_
-             [ assign_ "a" Arith_expr.(plus_ (var_ "a") (lit_ 1))
-             ; assign_ "x" Arith_expr.(plus_ (var_ "a") (var_ "b"))
-             ])
-      ]
+    Fixed.(
+      block_
+        [ assign_ "x" Arith_expr.Fixed.(plus_ (var_ "a") (var_ "b"))
+        ; assign_ "y" Arith_expr.Fixed.(mult_ (var_ "a") (var_ "b"))
+        ; while__
+            Bool_expr.Fixed.(
+              gt_
+                (Arith_expr.Fixed.var_ "y")
+                Arith_expr.Fixed.(plus_ (var_ "a") (var_ "b")))
+            (block_
+               [ assign_ "a" Arith_expr.Fixed.(plus_ (var_ "a") (lit_ 1))
+               ; assign_ "x" Arith_expr.Fixed.(plus_ (var_ "a") (var_ "b"))
+               ])
+        ])
     |> Labelled.label)
 ;;
