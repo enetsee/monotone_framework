@@ -65,14 +65,13 @@ module Pattern = struct
     ;;
   end
 
-  let pp pp_first pp_second pp_third ppf = function
-    | Assign (name, a) -> Fmt.pf ppf "%s := %a;" name pp_first a
+  let pp f g h ppf = function
+    | Assign (name, a) -> Fmt.pf ppf "%s := %a;" name f a
     | Skip -> Fmt.string ppf "skip;"
-    | If (b, tc, fc) ->
-      Fmt.pf ppf "if (%a) %a %a" pp_second b pp_third tc pp_third fc
-    | While (b, c) -> Fmt.pf ppf "while (%a) %a" pp_second b pp_third c
+    | If (b, tc, fc) -> Fmt.pf ppf "if (%a) %a %a" g b h tc h fc
+    | While (b, c) -> Fmt.pf ppf "while (%a) %a" g b h c
     | Block cs ->
-      Fmt.pf ppf {|{@;<1 2>@[<v>%a@]@;}|} Fmt.(list pp_third ~sep:Fmt.cut) cs
+      Fmt.pf ppf {|{@;<1 2>@[<v>%a@]@;}|} Fmt.(list h ~sep:Fmt.cut) cs
   ;;
 end
 

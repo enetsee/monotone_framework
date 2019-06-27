@@ -71,11 +71,10 @@ module Pattern = struct
   let mult a b = Binop (a, Mult, b)
   let div a b = Binop (a, Div, b)
 
-  let pp pp_with ppf = function
+  let pp f ppf = function
     | Lit n -> Fmt.pf ppf {|%i|} n
     | Var n -> Fmt.pf ppf {|%s|} n
-    | Binop (e1, op, e2) ->
-      Fmt.pf ppf {|%a %a %a|} pp_with e1 pp_op op pp_with e2
+    | Binop (e1, op, e2) -> Fmt.pf ppf {|%a %a %a|} f e1 pp_op op f e2
   ;;
 end
 
@@ -102,14 +101,16 @@ end
 
 module Unlabelled = struct
   type meta = unit [@@deriving sexp, hash, compare]
-  type nonrec t = meta Fixed.t
 
   let pp_meta _ _ = ()
+
+  type nonrec t = meta Fixed.t
+
+  let pp ppf x = Fixed.pp pp_meta ppf x
   let compare x = Fixed.compare compare_meta x
   let sexp_of_t x = Fixed.sexp_of_t sexp_of_meta x
   let t_of_sexp x = Fixed.t_of_sexp meta_of_sexp x
   let hash_fold_t = Fixed.hash_fold_t hash_fold_meta
-  let pp ppf x = Fixed.pp pp_meta ppf x
 
   include Comparator.Make (struct
     type nonrec t = t

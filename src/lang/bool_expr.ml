@@ -94,14 +94,12 @@ module Pattern = struct
   let gt a b = Relop (a, Gt, b)
   let lt a b = Relop (a, Lt, b)
 
-  let pp pp_first pp_second ppf = function
+  let pp f g ppf = function
     | True -> Fmt.string ppf "true"
     | False -> Fmt.string ppf "false"
-    | Not b -> Fmt.pf ppf {|!%a|} (Fmt.parens pp_second) b
-    | Boolop (b1, op, b2) ->
-      Fmt.pf ppf {|%a %a %a|} pp_second b1 pp_bool_op op pp_second b2
-    | Relop (a1, op, a2) ->
-      Fmt.pf ppf {|%a %a %a|} pp_first a1 pp_rel_op op pp_first a2
+    | Not b -> Fmt.pf ppf {|!%a|} (Fmt.parens g) b
+    | Boolop (b1, op, b2) -> Fmt.pf ppf {|%a %a %a|} g b1 pp_bool_op op g b2
+    | Relop (a1, op, a2) -> Fmt.pf ppf {|%a %a %a|} f a1 pp_rel_op op f a2
   ;;
 end
 
