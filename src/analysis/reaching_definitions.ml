@@ -69,9 +69,9 @@ struct
 
   let extremal_value_of (x : t) =
     Stmt.Fixed.trifold_right_pattern
-      ~f:(fun _ accu -> accu)
-      ~g:(fun _ accu -> accu)
-      ~h:(fun pattern accu ->
+      ~f:(fun _ _ accu -> accu)
+      ~g:(fun _ _ accu -> accu)
+      ~h:(fun _ pattern accu ->
         match pattern with
         | Stmt.Pattern.Assign (vbl, _) -> (vbl, None) :: accu
         | _ -> accu)

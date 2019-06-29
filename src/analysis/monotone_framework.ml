@@ -5,6 +5,9 @@ type 'p entry_exit =
   ; exit : 'p
   }
 
+let entry { entry; _ } = entry
+let exit { exit; _ } = exit
+
 module type S = sig
   type t
   type property
@@ -18,7 +21,11 @@ module type S = sig
 
   val solve
     :  t
-    -> (Label.t, property entry_exit, Label.comparator_witness) Map_intf.Map.t
+    -> (Label.t, t, Label.comparator_witness) Map_intf.Map.t
+       * ( Label.t
+         , property entry_exit
+         , Label.comparator_witness )
+         Map_intf.Map.t
 end
 
 module Make
@@ -80,11 +87,11 @@ module Make
   ;;
 
   let solve x =
-    let flowgraph = F.flow_of x
-    and initials = F.extremal_labels_of x
+    let flowgraph = F.flow_of_t x
+    and initials = F.extremal_labels_of_t x
     and extremal_value = L.extremal_value_of x
     and least_value = L.least_element_of x
-    and assocs = F.associations x
+    and assocs = F.associations_of_t x
     and all_props = TF.all_properties_of x in
     let worklist = flowgraph in
     let init =
@@ -92,6 +99,6 @@ module Make
       |> LabelMap.of_alist_exn
     in
     let analysis = aux all_props flowgraph assocs init worklist in
-    result_of_analysis all_props flowgraph assocs analysis
+    assocs, result_of_analysis all_props flowgraph assocs analysis
   ;;
 end

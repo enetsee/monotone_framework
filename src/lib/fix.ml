@@ -59,35 +59,39 @@ module Fixed = struct
     val pattern : 'a t -> 'a t Pattern.t
     val meta : 'a t -> 'a
     val fix : 'a -> 'a t Pattern.t -> 'a t
-    val map_pattern : f:('a t Pattern.t -> 'a t Pattern.t) -> 'a t -> 'a t
+
+    val map_pattern
+      :  f:('a -> 'a t Pattern.t -> 'a t Pattern.t)
+      -> 'a t
+      -> 'a t
 
     val fold_left_pattern
-      :  f:('a -> 'b t Pattern.t -> 'a)
+      :  f:('a -> 'b -> 'b t Pattern.t -> 'a)
       -> init:'a
       -> 'b t
       -> 'a
 
     val fold_right_pattern
-      :  f:('b t Pattern.t -> 'a -> 'a)
+      :  f:('b -> 'b t Pattern.t -> 'a -> 'a)
       -> init:'a
       -> 'b t
       -> 'a
 
     val fold_map_pattern
       :  (module Monoid.S with type t = 'a)
-      -> f:('b t Pattern.t -> 'a)
+      -> f:('b -> 'b t Pattern.t -> 'a)
       -> ?init:'a
       -> 'b t
       -> 'a
 
     val any_pattern
-      :  pred:('a t Pattern.t -> bool)
+      :  pred:('a -> 'a t Pattern.t -> bool)
       -> ?init:bool
       -> 'a t
       -> bool
 
     val all_pattern
-      :  pred:('a t Pattern.t -> bool)
+      :  pred:('a -> 'a t Pattern.t -> bool)
       -> ?init:bool
       -> 'a t
       -> bool
@@ -148,18 +152,18 @@ module Fixed = struct
     end
 
     let rec map_pattern ~f { X.pattern; meta } =
-      { X.pattern = f @@ X.Pattern.map ~f:(map_pattern ~f) pattern; meta }
+      { X.pattern = f meta @@ X.Pattern.map ~f:(map_pattern ~f) pattern; meta }
     ;;
 
-    let rec fold_left_pattern ~f ~init { X.pattern; _ } =
+    let rec fold_left_pattern ~f ~init { X.pattern; meta } =
       X.Pattern.fold_left
         ~f:(fun accu x -> fold_left_pattern ~f ~init:accu x)
-        ~init:(f init pattern)
+        ~init:(f init meta pattern)
         pattern
     ;;
 
-    let rec fold_right_pattern ~f ~init { X.pattern; _ } =
-      f pattern
+    let rec fold_right_pattern ~f ~init { X.pattern; meta } =
+      f meta pattern
       @@ X.Pattern.fold_right
            ~f:(fun x accu -> fold_right_pattern ~f ~init:accu x)
            ~init
@@ -173,7 +177,10 @@ module Fixed = struct
         ?init:(empty = M.empty)
         x
       =
-      fold_right_pattern ~f:(fun x accu -> M.combine accu @@ f x) ~init:empty x
+      fold_right_pattern
+        ~f:(fun meta pattern accu -> M.combine accu @@ f meta pattern)
+        ~init:empty
+        x
     ;;
 
     let any_pattern ~pred ?init x =
@@ -259,44 +266,45 @@ module Fixed = struct
     val fix : 'b -> ('a First.t, ('a, 'b) t) Pattern.t -> ('a, 'b) t
 
     val bimap_pattern
-      :  f:('a First.t First.Pattern.t -> 'a First.t First.Pattern.t)
-      -> g:(('a First.t, ('a, 'b) t) Pattern.t
+      :  f:('a -> 'a First.t First.Pattern.t -> 'a First.t First.Pattern.t)
+      -> g:('b
+            -> ('a First.t, ('a, 'b) t) Pattern.t
             -> ('a First.t, ('a, 'b) t) Pattern.t)
       -> ('a, 'b) t
       -> ('a, 'b) t
 
     val bifold_left_pattern
-      :  f:('a -> 'b First.t First.Pattern.t -> 'a)
-      -> g:('a -> ('b First.t, ('b, 'c) t) Pattern.t -> 'a)
+      :  f:('a -> 'b -> 'b First.t First.Pattern.t -> 'a)
+      -> g:('a -> 'c -> ('b First.t, ('b, 'c) t) Pattern.t -> 'a)
       -> init:'a
       -> ('b, 'c) t
       -> 'a
 
     val bifold_right_pattern
-      :  f:('b First.t First.Pattern.t -> 'a -> 'a)
-      -> g:(('b First.t, ('b, 'c) t) Pattern.t -> 'a -> 'a)
+      :  f:('b -> 'b First.t First.Pattern.t -> 'a -> 'a)
+      -> g:('c -> ('b First.t, ('b, 'c) t) Pattern.t -> 'a -> 'a)
       -> init:'a
       -> ('b, 'c) t
       -> 'a
 
     val bifold_map_pattern
       :  (module Monoid.S with type t = 'a)
-      -> f:('b First.t First.Pattern.t -> 'a)
-      -> g:(('b First.t, ('b, 'c) t) Pattern.t -> 'a)
+      -> f:('b -> 'b First.t First.Pattern.t -> 'a)
+      -> g:('c -> ('b First.t, ('b, 'c) t) Pattern.t -> 'a)
       -> ?init:'a
       -> ('b, 'c) t
       -> 'a
 
     val biany_pattern
-      :  pred_first:('a First.t First.Pattern.t -> bool)
-      -> pred_second:(('a First.t, ('a, 'b) t) Pattern.t -> bool)
+      :  pred_first:('a -> 'a First.t First.Pattern.t -> bool)
+      -> pred_second:('b -> ('a First.t, ('a, 'b) t) Pattern.t -> bool)
       -> ?init:bool
       -> ('a, 'b) t
       -> bool
 
     val biall_pattern
-      :  pred_first:('a First.t First.Pattern.t -> bool)
-      -> pred_second:(('a First.t, ('a, 'b) t) Pattern.t -> bool)
+      :  pred_first:('a -> 'a First.t First.Pattern.t -> bool)
+      -> pred_second:('b -> ('a First.t, ('a, 'b) t) Pattern.t -> bool)
       -> ?init:bool
       -> ('a, 'b) t
       -> bool
@@ -367,7 +375,7 @@ module Fixed = struct
 
     let rec bimap_pattern ~f ~g { X.pattern; meta } =
       { X.pattern =
-          g
+          g meta
           @@ X.Pattern.bimap
                ~f:(X.First.map_pattern ~f)
                ~g:(bimap_pattern ~f ~g)
@@ -376,21 +384,21 @@ module Fixed = struct
       }
     ;;
 
-    let rec bifold_left_pattern ~f ~g ~init { X.pattern; _ } =
+    let rec bifold_left_pattern ~f ~g ~init { X.pattern; meta } =
       X.Pattern.bifold_left
         ~f:(fun accu x -> X.First.fold_left_pattern ~f ~init:accu x)
         ~g:(fun accu x -> bifold_left_pattern ~f ~g ~init:accu x)
-        ~init:(g init pattern)
+        ~init:(g init meta pattern)
         pattern
     ;;
 
-    let rec bifold_right_pattern ~f ~g ~init { X.pattern; _ } =
+    let rec bifold_right_pattern ~f ~g ~init { X.pattern; meta } =
       X.Pattern.bifold_right
         ~f:(fun x accu -> X.First.fold_right_pattern ~f ~init:accu x)
         ~g:(fun x accu -> bifold_right_pattern ~f ~g ~init:accu x)
         ~init
         pattern
-      |> g pattern
+      |> g meta pattern
     ;;
 
     let bifold_map_pattern
@@ -402,8 +410,9 @@ module Fixed = struct
         x
       =
       bifold_right_pattern
-        ~f:(fun x accu -> M.combine accu @@ f x)
-        ~g:(fun x accu -> M.combine accu @@ g x)
+        ~f:(fun meta_first pattern_first accu ->
+          M.combine accu @@ f meta_first pattern_first)
+        ~g:(fun meta pattern accu -> M.combine accu @@ g meta pattern)
         ~init:empty
         x
     ;;
@@ -515,18 +524,21 @@ module Fixed = struct
       -> ('a, 'b, 'c) t
 
     val trimap_pattern
-      :  f:('a First.t First.Pattern.t -> 'a First.t First.Pattern.t)
-      -> g:(('a First.t, ('a, 'b) Second.t) Second.Pattern.t
+      :  f:('a -> 'a First.t First.Pattern.t -> 'a First.t First.Pattern.t)
+      -> g:('b
+            -> ('a First.t, ('a, 'b) Second.t) Second.Pattern.t
             -> ('a First.t, ('a, 'b) Second.t) Second.Pattern.t)
-      -> h:(('a First.t, ('a, 'b) Second.t, ('a, 'b, 'c) t) Pattern.t
+      -> h:('c
+            -> ('a First.t, ('a, 'b) Second.t, ('a, 'b, 'c) t) Pattern.t
             -> ('a First.t, ('a, 'b) Second.t, ('a, 'b, 'c) t) Pattern.t)
       -> ('a, 'b, 'c) t
       -> ('a, 'b, 'c) t
 
     val trifold_left_pattern
-      :  f:('a -> 'b First.t First.Pattern.t -> 'a)
-      -> g:('a -> ('b First.t, ('b, 'c) Second.t) Second.Pattern.t -> 'a)
+      :  f:('a -> 'b -> 'b First.t First.Pattern.t -> 'a)
+      -> g:('a -> 'c -> ('b First.t, ('b, 'c) Second.t) Second.Pattern.t -> 'a)
       -> h:('a
+            -> 'd
             -> ('b First.t, ('b, 'c) Second.t, ('b, 'c, 'd) t) Pattern.t
             -> 'a)
       -> init:'a
@@ -534,9 +546,10 @@ module Fixed = struct
       -> 'a
 
     val trifold_right_pattern
-      :  f:('b First.t First.Pattern.t -> 'a -> 'a)
-      -> g:(('b First.t, ('b, 'c) Second.t) Second.Pattern.t -> 'a -> 'a)
-      -> h:(('b First.t, ('b, 'c) Second.t, ('b, 'c, 'd) t) Pattern.t
+      :  f:('b -> 'b First.t First.Pattern.t -> 'a -> 'a)
+      -> g:('c -> ('b First.t, ('b, 'c) Second.t) Second.Pattern.t -> 'a -> 'a)
+      -> h:('d
+            -> ('b First.t, ('b, 'c) Second.t, ('b, 'c, 'd) t) Pattern.t
             -> 'a
             -> 'a)
       -> init:'a
@@ -545,26 +558,40 @@ module Fixed = struct
 
     val trifold_map_pattern
       :  (module Monoid.S with type t = 'a)
-      -> f:('b First.t First.Pattern.t -> 'a)
-      -> g:(('b First.t, ('b, 'c) Second.t) Second.Pattern.t -> 'a)
-      -> h:(('b First.t, ('b, 'c) Second.t, ('b, 'c, 'd) t) Pattern.t -> 'a)
+      -> f:('b -> 'b First.t First.Pattern.t -> 'a)
+      -> g:('c -> ('b First.t, ('b, 'c) Second.t) Second.Pattern.t -> 'a)
+      -> h:('d
+            -> ('b First.t, ('b, 'c) Second.t, ('b, 'c, 'd) t) Pattern.t
+            -> 'a)
       -> ?init:'a
       -> ('b, 'c, 'd) t
       -> 'a
 
-    val biany_pattern
-      :  pred_first:('a First.t First.Pattern.t -> bool)
-      -> pred_second:(('a First.t, ('a, 'b) Second.t) Second.Pattern.t -> bool)
-      -> pred_third:(('a First.t, ('a, 'b) Second.t, ('a, 'b, 'c) t) Pattern.t
+    val triany_pattern
+      :  pred_first:('a -> 'a First.t First.Pattern.t -> bool)
+      -> pred_second:('b
+                      -> ('a First.t, ('a, 'b) Second.t) Second.Pattern.t
+                      -> bool)
+      -> pred_third:('c
+                     -> ( 'a First.t
+                        , ('a, 'b) Second.t
+                        , ('a, 'b, 'c) t )
+                        Pattern.t
                      -> bool)
       -> ?init:bool
       -> ('a, 'b, 'c) t
       -> bool
 
-    val biall_pattern
-      :  pred_first:('a First.t First.Pattern.t -> bool)
-      -> pred_second:(('a First.t, ('a, 'b) Second.t) Second.Pattern.t -> bool)
-      -> pred_third:(('a First.t, ('a, 'b) Second.t, ('a, 'b, 'c) t) Pattern.t
+    val triall_pattern
+      :  pred_first:('a -> 'a First.t First.Pattern.t -> bool)
+      -> pred_second:('b
+                      -> ('a First.t, ('a, 'b) Second.t) Second.Pattern.t
+                      -> bool)
+      -> pred_third:('c
+                     -> ( 'a First.t
+                        , ('a, 'b) Second.t
+                        , ('a, 'b, 'c) t )
+                        Pattern.t
                      -> bool)
       -> ?init:bool
       -> ('a, 'b, 'c) t
@@ -647,7 +674,7 @@ module Fixed = struct
 
     let rec trimap_pattern ~f ~g ~h { X.pattern; meta } =
       { X.pattern =
-          h
+          h meta
           @@ X.Pattern.trimap
                ~f:(X.First.map_pattern ~f)
                ~g:(X.Second.bimap_pattern ~f ~g)
@@ -657,23 +684,23 @@ module Fixed = struct
       }
     ;;
 
-    let rec trifold_left_pattern ~f ~g ~h ~init { X.pattern; _ } =
+    let rec trifold_left_pattern ~f ~g ~h ~init { X.pattern; meta } =
       X.Pattern.trifold_left
         ~f:(fun accu x -> X.First.fold_left_pattern ~f ~init:accu x)
         ~g:(fun accu x -> X.Second.bifold_left_pattern ~f ~g ~init:accu x)
         ~h:(fun accu x -> trifold_left_pattern ~f ~g ~h ~init:accu x)
-        ~init:(h init pattern)
+        ~init:(h init meta pattern)
         pattern
     ;;
 
-    let rec trifold_right_pattern ~f ~g ~h ~init { X.pattern; _ } =
+    let rec trifold_right_pattern ~f ~g ~h ~init { X.pattern; meta } =
       X.Pattern.trifold_right
         ~f:(fun x accu -> X.First.fold_right_pattern ~f ~init:accu x)
         ~g:(fun x accu -> X.Second.bifold_right_pattern ~f ~g ~init:accu x)
         ~h:(fun x accu -> trifold_right_pattern ~f ~g ~h ~init:accu x)
         ~init
         pattern
-      |> h pattern
+      |> h meta pattern
     ;;
 
     let trifold_map_pattern
@@ -686,14 +713,14 @@ module Fixed = struct
         x
       =
       trifold_right_pattern
-        ~f:(fun x accu -> M.combine accu @@ f x)
-        ~g:(fun x accu -> M.combine accu @@ g x)
-        ~h:(fun x accu -> M.combine accu @@ h x)
+        ~f:(fun meta pattern accu -> M.combine accu @@ f meta pattern)
+        ~g:(fun meta pattern accu -> M.combine accu @@ g meta pattern)
+        ~h:(fun meta pattern accu -> M.combine accu @@ h meta pattern)
         ~init:empty
         x
     ;;
 
-    let biany_pattern ~pred_first ~pred_second ~pred_third ?init x =
+    let triany_pattern ~pred_first ~pred_second ~pred_third ?init x =
       trifold_map_pattern
         (module Monoid.Bool_or)
         ~f:pred_first
@@ -703,7 +730,7 @@ module Fixed = struct
         x
     ;;
 
-    let biall_pattern ~pred_first ~pred_second ~pred_third ?init x =
+    let triall_pattern ~pred_first ~pred_second ~pred_third ?init x =
       trifold_map_pattern
         (module Monoid.Bool_and)
         ~f:pred_first

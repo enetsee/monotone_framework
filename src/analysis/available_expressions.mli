@@ -12,7 +12,7 @@ type property =
 module Label = Stmt.Labelled.Label
 module LabelMap : Map.S with module Key := Label
 
-val solve : t -> property entry_exit LabelMap.t
+val solve : t -> t LabelMap.t * property entry_exit LabelMap.t
 val example_2_5 : Stmt.Labelled.t
 
 (* val solve : Stmt.Labelled.t -> (Stmt.Labelled.Label.t,

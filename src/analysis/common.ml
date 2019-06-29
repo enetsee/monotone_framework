@@ -133,9 +133,35 @@ and pairwise ~init = function
   | [] -> init
 ;;
 
+(** Subsitute statements within a statement *)
+let subst_stmt stmt env =
+  Stmt.Fixed.trimap_pattern
+    ~f:(fun _ x -> x)
+    ~g:(fun _ x -> x)
+    ~h:(fun { Stmt.Labelled.label } s ->
+      LabelMap.find env label
+      |> Option.value_map ~default:s ~f:Stmt.Fixed.pattern)
+    stmt
+;;
+
+(** Recover a statement from it's flowgraph *)
+let recover assocs =
+  LabelMap.fold_right
+    assocs
+    ~f:(fun ~key ~data accu_opt ->
+      match accu_opt with
+      | Some (_, env) ->
+        let stmt' = subst_stmt data env in
+        let env' = LabelMap.add_exn env ~key ~data in
+        Some (stmt', env')
+      | _ -> Some (data, LabelMap.add_exn LabelMap.empty ~key ~data))
+    ~init:None
+  |> Option.map ~f:fst
+;;
+
 (** The variables in an arithmetic expression *)
 let vars ?init:(accu = []) expr =
-  let f accu = function
+  let f accu _ = function
     | Arith_expr.Pattern.Var n -> n :: accu
     | _ -> accu
   in

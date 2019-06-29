@@ -72,7 +72,34 @@ module TF :
   ;;
 end
 
-include Monotone_framework.Make (Stmt_flowgraph.Forward) (L) (TF)
+module F = Stmt_flowgraph.Forward
+include Monotone_framework.Make (F) (L) (TF)
+
+(** Substitute arithmetic expressions within a statement and partially evaluate *)
+let apply_constants stmt env =
+  Stmt.Fixed.trimap_pattern
+    ~f:(fun m aexpr ->
+      Arith_expr.Fixed.(
+        fix m aexpr |> Partial_evaluation.eval_arith_expr ~env |> pattern))
+    ~g:(fun _ x -> x)
+    ~h:(fun _ x -> x)
+    stmt
+;;
+
+(** Apply constant propagation, recovering the transformed statement *)
+let apply (assocs, analysis) =
+  assocs
+  |> LabelMap.mapi ~f:(fun ~key ~data ->
+         match
+           LabelMap.find analysis key
+           |> Option.bind ~f:Monotone_framework.entry
+         with
+         | Some env -> apply_constants data env
+         | _ -> data)
+  |> F.t_of_associations
+;;
+
+let optimize stmt = stmt |> solve |> apply |> Option.value ~default:stmt
 
 let example =
   Stmt.Fixed.(
@@ -83,7 +110,10 @@ let example =
       ; while__
           Bool_expr.Fixed.(
             gt_ Arith_expr.Fixed.(var_ "z") Arith_expr.Fixed.(var_ "y"))
-          (block_ [ skip_; skip_ ])
+          (block_
+             [ assign_ "z" Arith_expr.Fixed.(minus_ (var_ "z") (lit_ 1))
+             ; skip_
+             ])
       ]
     |> Stmt.Labelled.label)
 ;;
