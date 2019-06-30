@@ -105,7 +105,8 @@ end
 
 module Fixed = struct
   module Pattern = Pattern
-  include Fix.Make2 (Pattern) (Arith_expr.Fixed)
+  module First = Arith_expr.Fixed
+  include Fix.Make2 (Pattern) (First)
 
   let true_ meta = fix meta Pattern.true_
   let true__ : (unit, unit) t = true_ ()
@@ -124,6 +125,71 @@ module Fixed = struct
   let lt meta a b = fix meta @@ Pattern.lt a b
   let lt_ a b = lt () a b
   let pp_ ppf x = pp (fun _ _ -> ()) (fun _ _ -> ()) ppf x
+
+  let eval_bool_op = function
+    | And -> ( && )
+    | Or -> ( || )
+  ;;
+
+  let eval_rel_op = function
+    | Eq -> ( = )
+    | Gt -> ( > )
+    | Lt -> ( < )
+  ;;
+
+  let apply_rel_op op e1 e2 =
+    match Arith_expr.Fixed.(pattern e1, pattern e2) with
+    | Lit l1, Lit l2 ->
+      if eval_rel_op op l1 l2 then Some Pattern.True else Some False
+    | _ -> None
+  ;;
+
+  let apply_not bool_expr =
+    match pattern bool_expr with
+    | True -> Some Pattern.False
+    | False -> Some True
+    | _ -> None
+  ;;
+
+  let apply_bool_op op e1 e2 =
+    let lits_opt =
+      match pattern e1, pattern e2 with
+      | True, True -> Some (true, true)
+      | True, False -> Some (true, false)
+      | False, True -> Some (false, true)
+      | False, False -> Some (false, false)
+      | _ -> None
+    in
+    Option.map
+      ~f:(fun (lit1, lit2) ->
+        if eval_bool_op op lit1 lit2 then Pattern.True else False)
+      lits_opt
+  ;;
+
+  let rec eval
+      ?(env = StringMap.empty) ?cont:(k = fun x -> x) { pattern; meta }
+    =
+    match pattern with
+    | True -> k @@ fix meta True
+    | False -> k @@ fix meta False
+    | Not b ->
+      eval b ~env ~cont:(fun b' ->
+          apply_not b |> Option.value ~default:(Not b') |> fix meta |> k)
+    | Boolop (b1, op, b2) ->
+      eval ~env b1 ~cont:(fun b1' ->
+          eval ~env b2 ~cont:(fun b2' ->
+              apply_bool_op op b1' b2'
+              |> Option.value ~default:(Boolop (b1', op, b2'))
+              |> fix meta
+              |> k))
+    | Relop (a1, op, a2) ->
+      let a1' = First.eval ~env a1
+      and a2' = First.eval ~env a2 in
+      apply_rel_op op a1' a2'
+      |> Option.value ~default:(Relop (a1', op, a2'))
+      |> fix meta
+      |> k
+  ;;
 end
 
 (* == Boolean expressions with no meta-data ==================================*)

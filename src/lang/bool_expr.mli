@@ -66,6 +66,12 @@ module Fixed : sig
     -> (unit, unit) t
 
   val pp_ : Format.formatter -> ('a, 'b) t -> unit
+
+  val eval
+    :  ?env:'a Arith_expr.Fixed.t StringMap.t
+    -> ?cont:(('a, 'b) t -> ('a, 'b) t)
+    -> ('a, 'b) t
+    -> ('a, 'b) t
 end
 
 module Unlabelled : sig
