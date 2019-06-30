@@ -1,5 +1,7 @@
+open Lib
 open Lang
 open Core_kernel
+open Monotone_framework_lib
 
 type t = Stmt.Labelled.t
 type property = Arith_expr.Labelled.t StringMap.t option
@@ -64,7 +66,7 @@ module TF :
     Option.map property ~f:(fun env ->
         match Stmt.Fixed.pattern t with
         | Assign (vbl, aexpr) ->
-          (match Partial_evaluation.eval_arith_expr ~env aexpr with
+          (match Arith_expr.Fixed.eval ~env aexpr with
           | aexpr' when is_literal aexpr' ->
             StringMap.set env ~key:vbl ~data:aexpr'
           | _ -> StringMap.remove env vbl)
@@ -79,8 +81,7 @@ include Monotone_framework.Make (F) (L) (TF)
 let apply_constants stmt env =
   Stmt.Fixed.trimap_pattern
     ~f:(fun m aexpr ->
-      Arith_expr.Fixed.(
-        fix m aexpr |> Partial_evaluation.eval_arith_expr ~env |> pattern))
+      Arith_expr.Fixed.(fix m aexpr |> Arith_expr.Fixed.eval ~env |> pattern))
     ~g:(fun _ x -> x)
     ~h:(fun _ x -> x)
     stmt
@@ -89,9 +90,9 @@ let apply_constants stmt env =
 (** Apply constant propagation, recovering the transformed statement *)
 let apply (assocs, analysis) =
   assocs
-  |> LabelMap.mapi ~f:(fun ~key ~data ->
+  |> Stmt.Labelled.LabelMap.mapi ~f:(fun ~key ~data ->
          match
-           LabelMap.find analysis key
+           Stmt.Labelled.LabelMap.find analysis key
            |> Option.bind ~f:Monotone_framework.entry
          with
          | Some env -> apply_constants data env
@@ -129,21 +130,28 @@ let show_property (prop : property) =
 ;;
 
 let show_solution
-    (solution : property Monotone_framework.entry_exit LabelMap.t)
+    (solution :
+      property Monotone_framework.entry_exit Stmt.Labelled.LabelMap.t)
   =
-  LabelMap.to_alist solution
+  Stmt.Labelled.LabelMap.to_alist solution
   |> List.map ~f:(fun (lbl, { Monotone_framework.entry; exit }) ->
          lbl, (show_property entry, show_property exit))
 ;;
 
-let show_entry (solution : property Monotone_framework.entry_exit LabelMap.t) =
-  LabelMap.to_alist solution
+let show_entry
+    (solution :
+      property Monotone_framework.entry_exit Stmt.Labelled.LabelMap.t)
+  =
+  Stmt.Labelled.LabelMap.to_alist solution
   |> List.map ~f:(fun (lbl, { Monotone_framework.entry; _ }) ->
          lbl, show_property entry)
 ;;
 
-let show_exit (solution : property Monotone_framework.entry_exit LabelMap.t) =
-  LabelMap.to_alist solution
+let show_exit
+    (solution :
+      property Monotone_framework.entry_exit Stmt.Labelled.LabelMap.t)
+  =
+  Stmt.Labelled.LabelMap.to_alist solution
   |> List.map ~f:(fun (lbl, { Monotone_framework.exit; _ }) ->
          lbl, show_property exit)
 ;;

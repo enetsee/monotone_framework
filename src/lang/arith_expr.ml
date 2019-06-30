@@ -71,6 +71,11 @@ module Pattern = struct
   let mult a b = Binop (a, Mult, b)
   let div a b = Binop (a, Div, b)
 
+  let is_trivial = function
+    | Var _ | Lit _ -> true
+    | _ -> false
+  ;;
+
   let pp f ppf = function
     | Lit n -> Fmt.pf ppf {|%i|} n
     | Var n -> Fmt.pf ppf {|%s|} n
@@ -95,6 +100,48 @@ module Fixed = struct
   let div meta a b = fix meta @@ Pattern.div a b
   let div_ a b = div () a b
   let pp_ ppf x = pp (fun _ _ -> ()) ppf x
+  let is_trivial expr = Pattern.is_trivial @@ pattern expr
+
+  let free_vars ?init:(accu = []) expr =
+    let f accu _ = function
+      | Pattern.Var n -> n :: accu
+      | _ -> accu
+    in
+    fold_left_pattern ~f ~init:accu expr
+  ;;
+
+  let eval_op = function
+    | Plus -> ( + )
+    | Minus -> ( - )
+    | Mult -> ( * )
+    | Div -> ( / )
+  ;;
+
+  let apply_op op e1 e2 =
+    match pattern e1, pattern e2 with
+    | Lit l1, Lit l2 -> eval_op op l1 l2 |> Pattern.lit |> Some
+    | _ -> None
+  ;;
+
+  let rec eval
+      ?(env = StringMap.empty) ?cont:(k = fun x -> x) { pattern; meta }
+    =
+    match pattern with
+    | Var var ->
+      StringMap.find env var
+      |> Option.value_map ~default:(Pattern.Var var) ~f:(fun { pattern; _ } ->
+             pattern)
+      |> fix meta
+      |> k
+    | Lit n -> k @@ lit meta n
+    | Binop (e1, op, e2) ->
+      eval ~env e1 ~cont:(fun e1' ->
+          eval ~env e2 ~cont:(fun e2' ->
+              apply_op op e1' e2'
+              |> Option.value ~default:(Binop (e1', op, e2'))
+              |> fix meta
+              |> k))
+  ;;
 end
 
 (* == Arithmetic expressions with no meta-data ============================== *)
@@ -159,5 +206,21 @@ module Labelled = struct
         get >>= fun label -> put (label + 1) >>= fun _ -> return { label })
     in
     Traversable_state.traverse ~f arith_expr |> State.run_state ~init:0 |> fst
+  ;;
+
+  module LabelMap = Map.Make_using_comparator (Label)
+
+  type associations = t LabelMap.t
+
+  let rec associate ?init:(assocs = LabelMap.empty)
+                    (arith_expr : t) =
+    LabelMap.add_exn
+      (associate_pattern assocs @@ Fixed.pattern arith_expr)
+      ~key:(label_of arith_expr)
+      ~data:arith_expr
+
+  and associate_pattern assocs = function
+    | Pattern.Lit _ | Var _ -> assocs
+    | Binop (a1, _, a2) -> associate ~init:(associate ~init:assocs a2) a1
   ;;
 end

@@ -1,6 +1,6 @@
 open Core_kernel
 open Lang
-open Monotone_framework
+open Monotone_framework_lib.Monotone_framework
 
 type t = Stmt.Labelled.t
 

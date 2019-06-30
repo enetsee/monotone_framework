@@ -22,6 +22,7 @@ module Pattern : sig
   val minus : 'a -> 'a -> 'a t
   val mult : 'a -> 'a -> 'a t
   val div : 'a -> 'a -> 'a t
+  val is_trivial : 'a t -> bool
 end
 
 module Fixed : sig
@@ -40,6 +41,9 @@ module Fixed : sig
   val div : 'a -> 'a t -> 'a t -> 'a t
   val div_ : unit t -> unit t -> unit t
   val pp_ : Format.formatter -> 'a t -> unit
+  val is_trivial : 'a t -> bool
+  val free_vars : ?init:string list -> 'a t -> string list
+  val eval : ?env:'a t StringMap.t -> ?cont:('a t -> 'a t) -> 'a t -> 'a t
 end
 
 module Unlabelled : sig
@@ -58,6 +62,7 @@ end
 
 module Labelled : sig
   module Label : Lib.Label.S with type t = int
+  module LabelMap : Map.S with module Key := Label
 
   type meta = { label : Label.t [@compare.ignore] }
   [@@deriving compare, sexp, hash]
@@ -73,4 +78,8 @@ module Labelled : sig
   val hash_fold_t : Hash.state -> t -> Hash.state
   val label : 'a Fixed.t -> t
   val label_of : t -> Label.t
+
+  type associations = t LabelMap.t
+
+  val associate : ?init:associations -> t -> associations
 end

@@ -1,6 +1,6 @@
 open Core_kernel
 open Lang
-open Common
+open Monotone_framework_lib
 
 type t = Stmt.Labelled.t
 
@@ -20,28 +20,39 @@ module KillGen :
   let gen { Stmt.Fixed.pattern; _ } =
     match pattern with
     | Stmt.Pattern.If (test, _, _) | Stmt.Pattern.While (test, _) ->
-      Common.associate_bool_expr test
-      |> Associations.arith_exprs
-      |> List.filter_map ~f:(fun (_, aexp) ->
-             if trivial aexp then None else Some aexp)
+      Bool_expr.Fixed.bifold_left_pattern
+        test
+        ~init:[]
+        ~f:(fun accu meta pattern ->
+          if Arith_expr.Pattern.is_trivial pattern
+          then accu
+          else Arith_expr.Fixed.fix meta pattern :: accu)
+        ~g:(fun accu _ _ -> accu)
       |> Property.of_list
     | Assign (x, aexp) ->
-      Common.associate_arith_expr aexp
-      |> Associations.arith_exprs
-      |> List.filter_map ~f:(fun (_, aexpr) ->
-             if trivial aexpr
-             then None
-             else if List.exists ~f:(fun y -> x = y) @@ vars aexpr
-             then None
-             else Some aexpr)
+      Arith_expr.Fixed.fold_left_pattern
+        ~init:[]
+        aexp
+        ~f:(fun accu meta pattern ->
+          if Arith_expr.Pattern.is_trivial pattern
+          then accu
+          else (
+            let aexpr = Arith_expr.Fixed.fix meta pattern in
+            let free_vars = Arith_expr.Fixed.free_vars aexpr in
+            if List.mem free_vars x ~equal:String.equal
+            then accu
+            else aexpr :: accu))
       |> Property.of_list
     | _ -> Property.empty
   ;;
 
-  let all_properties_of x =
-    Common.associate x
-    |> Associations.arith_exprs
-    |> List.map ~f:snd
+  let all_properties_of stmt =
+    Stmt.Fixed.trifold_left_pattern
+      stmt
+      ~init:[]
+      ~f:(fun accu meta pattern -> Arith_expr.Fixed.fix meta pattern :: accu)
+      ~g:(fun accu _ _ -> accu)
+      ~h:(fun accu _ _ -> accu)
     |> Property.of_list
   ;;
 
@@ -50,7 +61,8 @@ module KillGen :
     | Assign (x, _) ->
       prop_star
       |> Property.filter ~f:(fun expr ->
-             List.exists ~f:(fun y -> x = y) @@ vars expr)
+             let free_vars = Arith_expr.Fixed.free_vars expr in
+             List.mem free_vars x ~equal:String.equal)
     | _ -> Property.empty
   ;;
 
@@ -67,9 +79,12 @@ struct
   type property = Property.t
 
   let least_element_of x =
-    Common.associate x
-    |> Associations.arith_exprs
-    |> List.map ~f:snd
+    Stmt.Fixed.trifold_left_pattern
+      x
+      ~init:[]
+      ~f:(fun accu meta pattern -> Arith_expr.Fixed.fix meta pattern :: accu)
+      ~g:(fun accu _ _ -> accu)
+      ~h:(fun accu _ _ -> accu)
     |> Property.of_list
   ;;
 

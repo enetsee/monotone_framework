@@ -1,5 +1,6 @@
 open Core_kernel
 open Lang
+open Monotone_framework_lib
 
 type t = Stmt.Labelled.t
 
@@ -41,13 +42,16 @@ module Kill_gen :
     | _ -> Property.empty
   ;;
 
-  let all_properties_of x =
-    Common.associate x
-    |> Associations.stmts
-    |> List.filter_map ~f:(fun (lbl, { pattern; _ }) ->
-           match pattern with
-           | Stmt.Pattern.Assign (vbl, _) -> Some (vbl, Some lbl)
-           | _ -> None)
+  let all_properties_of stmt =
+    Stmt.Fixed.trifold_left_pattern
+      stmt
+      ~init:[]
+      ~f:(fun accu _ _ -> accu)
+      ~g:(fun accu _ _ -> accu)
+      ~h:(fun accu { Stmt.Labelled.label } stmt_pattern ->
+        match stmt_pattern with
+        | Assign (vbl, _) -> (vbl, Some label) :: accu
+        | _ -> accu)
     |> Property.of_list
   ;;
 

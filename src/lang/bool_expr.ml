@@ -171,6 +171,8 @@ module Labelled = struct
     type t = int [@@deriving hash, sexp_of, of_sexp, compare]
   end)
 
+  module LabelMap = Map.Make_using_comparator (Label)
+
   type meta = { label : Label.t [@compare.ignore] }
   [@@deriving compare, hash, sexp]
 
@@ -217,5 +219,40 @@ module Labelled = struct
     Bitraversable_state.bitraverse ~f ~g bool_expr
     |> State.run_state ~init:0
     |> fst
+  ;;
+
+  type associations =
+    { arith_exprs : Arith_expr.Labelled.t Arith_expr.Labelled.LabelMap.t
+    ; bool_exprs : t LabelMap.t
+    }
+
+  let empty =
+    { arith_exprs = Arith_expr.Labelled.LabelMap.empty
+    ; bool_exprs = LabelMap.empty
+    }
+  ;;
+
+  let rec associate ?init:(assocs = empty) (bool_expr : t) =
+    associate_pattern
+      { assocs with
+        bool_exprs =
+          LabelMap.add_exn
+            assocs.bool_exprs
+            ~key:(label_of bool_expr)
+            ~data:bool_expr
+      }
+      (Fixed.pattern bool_expr)
+
+  and associate_pattern assocs = function
+    | True | False -> assocs
+    | Not b -> associate ~init:assocs b
+    | Boolop (b1, _, b2) -> associate ~init:(associate ~init:assocs b2) b1
+    | Relop (a1, _, a2) ->
+      { assocs with
+        arith_exprs =
+          Arith_expr.Labelled.associate
+            ~init:(Arith_expr.Labelled.associate ~init:assocs.arith_exprs a2)
+            a1
+      }
   ;;
 end

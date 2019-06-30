@@ -78,6 +78,7 @@ end
 
 module Labelled : sig
   module Label : Lib.Label.S with type t = int
+  module LabelMap : Map.S with module Key := Label
 
   type meta = { label : Label.t [@compare.ignore] }
   [@@deriving compare, hash, sexp]
@@ -94,4 +95,12 @@ module Labelled : sig
   val hash_fold_t : Hash.state -> t -> Hash.state
   val label : ('a, 'b, 'c) Fixed.t -> t
   val label_of : t -> Label.t
+
+  type associations =
+    { arith_exprs : Arith_expr.Labelled.t Arith_expr.Labelled.LabelMap.t
+    ; bool_exprs : Bool_expr.Labelled.t Bool_expr.Labelled.LabelMap.t
+    ; stmts : t LabelMap.t
+    }
+
+  val associate : ?init:associations -> t -> associations
 end

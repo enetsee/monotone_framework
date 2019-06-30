@@ -158,6 +158,8 @@ module Labelled = struct
     type t = int [@@deriving hash, sexp_of, of_sexp, compare]
   end)
 
+  module LabelMap = Map.Make_using_comparator (Label)
+
   type meta = { label : Label.t [@compare.ignore] }
   [@@deriving compare, hash, sexp]
 
@@ -227,5 +229,57 @@ module Labelled = struct
     Tritraversable_state.tritraverse ~f ~g ~h stmt
     |> State.run_state ~init:0
     |> fst
+  ;;
+
+  type associations =
+    { arith_exprs : Arith_expr.Labelled.t Arith_expr.Labelled.LabelMap.t
+    ; bool_exprs : Bool_expr.Labelled.t Bool_expr.Labelled.LabelMap.t
+    ; stmts : t LabelMap.t
+    }
+
+  let empty =
+    { arith_exprs = Arith_expr.Labelled.LabelMap.empty
+    ; bool_exprs = Bool_expr.Labelled.LabelMap.empty
+    ; stmts = LabelMap.empty
+    }
+  ;;
+
+  let rec associate ?init:(assocs = empty) stmt =
+    associate_pattern
+      { assocs with
+        stmts = LabelMap.add_exn assocs.stmts ~key:(label_of stmt) ~data:stmt
+      }
+      (Fixed.pattern stmt)
+
+  and associate_pattern assocs = function
+    | Pattern.Skip -> assocs
+    | Assign (_, a) ->
+      { assocs with
+        arith_exprs = Arith_expr.Labelled.associate ~init:assocs.arith_exprs a
+      }
+    | If (pred, t, f) ->
+      let { Bool_expr.Labelled.arith_exprs; bool_exprs } =
+        Bool_expr.Labelled.associate
+          ~init:
+            { arith_exprs = assocs.arith_exprs
+            ; bool_exprs = assocs.bool_exprs
+            }
+          pred
+      in
+      let assocs' = { assocs with arith_exprs; bool_exprs } in
+      associate ~init:(associate ~init:assocs' t) f
+    | While (pred, body) ->
+      let { Bool_expr.Labelled.arith_exprs; bool_exprs } =
+        Bool_expr.Labelled.associate
+          ~init:
+            { arith_exprs = assocs.arith_exprs
+            ; bool_exprs = assocs.bool_exprs
+            }
+          pred
+      in
+      let assocs' = { assocs with arith_exprs; bool_exprs } in
+      associate ~init:assocs' body
+    | Block xs ->
+      List.fold_right ~f:(fun x accu -> associate ~init:accu x) ~init:assocs xs
   ;;
 end

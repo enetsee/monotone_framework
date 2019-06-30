@@ -1,5 +1,5 @@
 (library
-  (name analysis)
-  (libraries core_kernel str fmt lib lang monotone_framework_lib)  
+  (name monotone_framework_lib)
+  (libraries core_kernel str fmt lib)  
   (inline_tests)
   (preprocess (pps ppx_jane ppx_deriving.map ppx_deriving.fold )))
