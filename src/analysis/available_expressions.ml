@@ -5,7 +5,7 @@ open Monotone_framework_lib
 type t = Stmt.Labelled.t
 
 module Label = Stmt.Labelled.Label
-module LabelMap = Map.Make_using_comparator (Label)
+module LabelMap = Stmt.Labelled.LabelMap
 module Property = Set.Make_using_comparator (Arith_expr.Labelled)
 
 type property = Property.t

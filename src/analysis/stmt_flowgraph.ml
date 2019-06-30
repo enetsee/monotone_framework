@@ -5,20 +5,6 @@ open Monotone_framework_lib
 (* == Helpers =============================================================== *)
 module LabelSet = Set.Make_using_comparator (Stmt.Labelled.Label)
 
-(** Determine the set of labels for a labelled statement *)
-let rec labels ?init:(accu = LabelSet.empty) stmt =
-  let label = Stmt.Labelled.label_of stmt in
-  labels_pattern label accu @@ Stmt.Fixed.pattern stmt
-
-and labels_pattern cur_label accu = function
-  | Stmt.Pattern.Assign _ | Skip -> LabelSet.add accu cur_label
-  | If (_, s1, s2) ->
-    labels ~init:(labels ~init:(LabelSet.add accu cur_label) s2) s1
-  | While (_, body) -> labels ~init:(LabelSet.add accu cur_label) body
-  | Block xs ->
-    List.fold_right ~f:(fun x accu -> labels ~init:accu x) ~init:accu xs
-;;
-
 (** Get the lables of the initial statement in a statement *)
 let rec initial stmt =
   let label = Stmt.Labelled.label_of stmt in
@@ -112,7 +98,7 @@ let recover assocs =
 
 (* == Flowgraph ============================================================= *)
 
-module Stmt_flow :
+module Basic :
   Flowgraph.Basic
   with type t = Stmt.Labelled.t
    and module Label = Stmt.Labelled.Label = struct
@@ -132,5 +118,5 @@ module Stmt_flow :
   ;;
 end
 
-module Forward = Flowgraph.Make (Stmt_flow)
-module Reverse = Flowgraph.Make_reverse (Stmt_flow)
+module Forward = Flowgraph.Make (Basic)
+module Reverse = Flowgraph.Make_reverse (Basic)

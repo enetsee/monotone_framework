@@ -126,6 +126,14 @@ module Fixed = struct
   let lt_ a b = lt () a b
   let pp_ ppf x = pp (fun _ _ -> ()) (fun _ _ -> ()) ppf x
 
+  let free_vars ?init:(accu = []) expr =
+    let f accu _ = function
+      | Arith_expr.Pattern.Var n -> n :: accu
+      | _ -> accu
+    in
+    bifold_left_pattern ~f ~g:(fun accu _ _ -> accu) ~init:accu expr
+  ;;
+
   let eval_bool_op = function
     | And -> ( && )
     | Or -> ( || )
