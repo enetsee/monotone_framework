@@ -1,6 +1,6 @@
 open Lang
 
-let example_live_variables =
+let live_variables =
   Stmt.(
     Fixed.(
       block_
@@ -17,7 +17,7 @@ let example_live_variables =
     |> Labelled.label)
 ;;
 
-let example_reaching_definitions =
+let reaching_definitions =
   Stmt.(
     Fixed.(
       block_
@@ -34,7 +34,7 @@ let example_reaching_definitions =
     |> Labelled.label)
 ;;
 
-let example_available_expressions =
+let available_expressions =
   Stmt.(
     Fixed.(
       block_
@@ -53,7 +53,7 @@ let example_available_expressions =
     |> Labelled.label)
 ;;
 
-let example_constant_propagation =
+let constant_propagation =
   Stmt.Fixed.(
     block_
       [ assign_ "x" Arith_expr.Fixed.(plus_ (lit_ 2) (lit_ 2))

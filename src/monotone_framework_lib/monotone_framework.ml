@@ -70,30 +70,36 @@ module Make
       else solve_helper all_props flow assocs analysis rest
   ;;
 
-  let result_of_analysis all_props flow assocs analysis =
-    List.map ~f:fst flow
-    |> List.map ~f:(fun lbl ->
-           let t = LabelMap.find_exn assocs lbl
-           and entry = LabelMap.find_exn analysis lbl in
-           let exit = TF.apply all_props t entry in
-           lbl, { entry; exit })
-    |> LabelMap.of_alist_exn
+  let result_of_analysis all_props initials flow assocs analysis =
+    let all_labels =
+      Set.to_list initials :: List.map ~f:(fun (l, l') -> [ l; l' ]) flow
+      |> List.concat
+    in
+    List.fold_left ~init:LabelMap.empty all_labels ~f:(fun accu lbl ->
+        let t = LabelMap.find_exn assocs lbl
+        and entry = LabelMap.find_exn analysis lbl in
+        let exit = TF.apply all_props t entry in
+        let data = { entry; exit } in
+        match LabelMap.add accu ~key:lbl ~data with
+        | `Duplicate -> accu
+        | `Ok accu' -> accu')
   ;;
 
   let initialize initials extremal_value least_value flow =
-    let flow_source = List.map ~f:fst flow
-    and flow_sink = List.map ~f:snd flow
-    and extremal_labels = Set.to_list initials in
-    List.fold_left ~init:LabelMap.empty ~f:(fun accu label ->
+    let all_labels =
+      Set.to_list initials :: List.map ~f:(fun (l, l') -> [ l; l' ]) flow
+      |> List.concat
+    in
+    List.fold_left
+      ~init:LabelMap.empty
+      ~f:(fun accu label ->
         let data =
           if LabelSet.mem initials label then extremal_value else least_value
         in
         match LabelMap.add accu ~key:label ~data with
         | `Duplicate -> accu
         | `Ok accu' -> accu')
-    @@ flow_source
-    @ flow_sink
-    @ extremal_labels
+      all_labels
   ;;
 
   let solve x =
@@ -106,6 +112,6 @@ module Make
     let init = initialize initials extremal_value least_value flowgraph
     and worklist = flowgraph in
     let analysis = solve_helper all_props flowgraph assocs init worklist in
-    assocs, result_of_analysis all_props flowgraph assocs analysis
+    assocs, result_of_analysis all_props initials flowgraph assocs analysis
   ;;
 end

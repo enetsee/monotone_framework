@@ -62,3 +62,26 @@ struct
 end
 
 include Monotone_framework.Make (Stmt_flowgraph.Reverse) (L) (TF)
+
+let apply_helper analysis (stmt : Stmt.Labelled.t) : Stmt.Labelled.t =
+  Stmt.Fixed.trimap_pattern
+    ~f:(fun _ x -> x)
+    ~g:(fun _ x -> x)
+    ~h:(fun { Stmt.Labelled.label } pattern ->
+      match pattern with
+      | Stmt.Pattern.Assign (vbl, _) as p ->
+        (match
+           Map.find analysis label |> Option.map ~f:Monotone_framework.entry
+         with
+        | Some vbls when Set.mem vbls vbl -> p
+        | _ -> Stmt.Pattern.skip)
+      | p -> p)
+    stmt
+;;
+
+let apply (assocs, analysis) =
+  Stmt_flowgraph.Forward.t_of_associations assocs
+  |> Option.map ~f:(apply_helper analysis)
+;;
+
+let optimize stmt = stmt |> solve |> apply |> Option.value ~default:stmt
