@@ -86,20 +86,3 @@ struct
 end
 
 include Monotone_framework.Make (Stmt_flowgraph.Forward) (L) (TF)
-
-let example_2_7 =
-  Stmt.(
-    Fixed.(
-      block_
-        [ assign_ "x" Arith_expr.Fixed.(lit_ 5)
-        ; assign_ "y" Arith_expr.Fixed.(lit_ 1)
-        ; while__
-            Bool_expr.Fixed.(
-              gt_ (Arith_expr.Fixed.var_ "x") Arith_expr.Fixed.(lit_ 1))
-            (block_
-               [ assign_ "y" Arith_expr.Fixed.(mult_ (var_ "x") (var_ "y"))
-               ; assign_ "x" Arith_expr.Fixed.(minus_ (var_ "x") (lit_ 1))
-               ])
-        ])
-    |> Labelled.label)
-;;

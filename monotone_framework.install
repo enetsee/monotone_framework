@@ -1,0 +1,11 @@
+lib: [
+  "_build/install/default/lib/monotone_framework/META"
+  "_build/install/default/lib/monotone_framework/dune-package"
+  "_build/install/default/lib/monotone_framework/opam"
+]
+bin: [
+  "_build/install/default/bin/monotone_framework"
+]
+doc: [
+  "_build/install/default/doc/monotone_framework/README.md"
+]

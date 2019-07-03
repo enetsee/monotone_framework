@@ -6,6 +6,8 @@ type t = Stmt.Labelled.t
 
 module Property = Set.Make_using_comparator (String)
 
+type property = Property.t
+
 module KillGen :
   Transfer_function.Kill_gen
   with type t = Stmt.Labelled.t
@@ -53,27 +55,10 @@ struct
   type t = Stmt.Labelled.t
   type property = Property.t
 
-  let least_element_of _ = Property.empty
   let extremal_value_of (_ : t) = Property.empty
+  let least_element_of _ = Property.empty
   let leq a b = Property.is_subset a ~of_:b
   let lub a b = Property.union a b
 end
 
 include Monotone_framework.Make (Stmt_flowgraph.Reverse) (L) (TF)
-
-let example_2_10 =
-  Stmt.(
-    Fixed.(
-      block_
-        [ assign_ "x" Arith_expr.Fixed.(lit_ 2)
-        ; assign_ "y" Arith_expr.Fixed.(lit_ 4)
-        ; assign_ "x" Arith_expr.Fixed.(lit_ 1)
-        ; if__
-            Bool_expr.Fixed.(
-              gt_ Arith_expr.Fixed.(var_ "y") Arith_expr.Fixed.(var_ "x"))
-            (assign_ "z" Arith_expr.Fixed.(var_ "y"))
-            (assign_ "z" Arith_expr.Fixed.(mult_ (var_ "y") (var_ "y")))
-        ; assign_ "x" Arith_expr.Fixed.(var_ "z")
-        ])
-    |> Labelled.label)
-;;

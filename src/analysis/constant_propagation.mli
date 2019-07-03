@@ -1,29 +1,17 @@
 open Lib
 open Lang
-open Monotone_framework_lib.Monotone_framework
+open Monotone_framework_lib
 
-type t = Stmt.Labelled.t
-type property = Arith_expr.Labelled.t StringMap.t option
-
-val solve
-  :  t
-  -> t Stmt.Labelled.LabelMap.t * property entry_exit Stmt.Labelled.LabelMap.t
+include
+  Monotone_framework.S
+  with type t = Stmt.Labelled.t
+   and type property = Arith_expr.Labelled.t StringMap.t option
+   and module Label := Stmt.Labelled.Label
+   and module F := Stmt_flowgraph.Forward
 
 val apply
-  :  t Stmt.Labelled.LabelMap.t * property entry_exit Stmt.Labelled.LabelMap.t
+  :  t Stmt.Labelled.LabelMap.t
+     * property Monotone_framework.entry_exit Stmt.Labelled.LabelMap.t
   -> t option
 
 val optimize : t -> t
-val example : t
-
-val show_solution
-  :  property entry_exit Stmt.Labelled.LabelMap.t
-  -> (int * ((string * string) list * (string * string) list)) list
-
-val show_entry
-  :  property entry_exit Stmt.Labelled.LabelMap.t
-  -> (int * (string * string) list) list
-
-val show_exit
-  :  property entry_exit Stmt.Labelled.LabelMap.t
-  -> (int * (string * string) list) list

@@ -74,8 +74,7 @@ module TF :
   ;;
 end
 
-module F = Stmt_flowgraph.Forward
-include Monotone_framework.Make (F) (L) (TF)
+include Monotone_framework.Make (Stmt_flowgraph.Forward) (L) (TF)
 
 (** Substitute arithmetic expressions within a statement and partially evaluate *)
 let apply_constants stmt env =
@@ -97,61 +96,7 @@ let apply (assocs, analysis) =
          with
          | Some env -> apply_constants data env
          | _ -> data)
-  |> F.t_of_associations
+  |> Stmt_flowgraph.Forward.t_of_associations
 ;;
 
 let optimize stmt = stmt |> solve |> apply |> Option.value ~default:stmt
-
-let example =
-  Stmt.Fixed.(
-    block_
-      [ assign_ "x" Arith_expr.Fixed.(plus_ (lit_ 2) (lit_ 2))
-      ; assign_ "y" Arith_expr.Fixed.(mult_ (lit_ 1) (var_ "x"))
-      ; assign_ "z" Arith_expr.Fixed.(lit_ 4)
-      ; while__
-          Bool_expr.Fixed.(
-            gt_ Arith_expr.Fixed.(var_ "z") Arith_expr.Fixed.(var_ "y"))
-          (block_
-             [ assign_ "z" Arith_expr.Fixed.(minus_ (var_ "z") (lit_ 1))
-             ; skip_
-             ])
-      ]
-    |> Stmt.Labelled.label)
-;;
-
-let show_env (env : Arith_expr.Labelled.t StringMap.t) =
-  StringMap.to_alist env
-  |> List.map ~f:(fun (var, aexp) ->
-         var, Fmt.to_to_string Arith_expr.Fixed.pp_ aexp)
-;;
-
-let show_property (prop : property) =
-  Option.value_map ~default:[] ~f:show_env prop
-;;
-
-let show_solution
-    (solution :
-      property Monotone_framework.entry_exit Stmt.Labelled.LabelMap.t)
-  =
-  Stmt.Labelled.LabelMap.to_alist solution
-  |> List.map ~f:(fun (lbl, { Monotone_framework.entry; exit }) ->
-         lbl, (show_property entry, show_property exit))
-;;
-
-let show_entry
-    (solution :
-      property Monotone_framework.entry_exit Stmt.Labelled.LabelMap.t)
-  =
-  Stmt.Labelled.LabelMap.to_alist solution
-  |> List.map ~f:(fun (lbl, { Monotone_framework.entry; _ }) ->
-         lbl, show_property entry)
-;;
-
-let show_exit
-    (solution :
-      property Monotone_framework.entry_exit Stmt.Labelled.LabelMap.t)
-  =
-  Stmt.Labelled.LabelMap.to_alist solution
-  |> List.map ~f:(fun (lbl, { Monotone_framework.exit; _ }) ->
-         lbl, show_property exit)
-;;

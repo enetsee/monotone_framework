@@ -56,7 +56,7 @@ module Make
         L.lub (Option.value_exn prop_opt) prop)
   ;;
 
-  let rec aux all_props flow assocs analysis = function
+  let rec solve_helper all_props flow assocs analysis = function
     | [] -> analysis
     | (l1, l2) :: rest ->
       let t = LabelMap.find_exn assocs l1 in
@@ -66,8 +66,8 @@ module Make
       then (
         let analysis' = update_analysis analysis l2 props1
         and w = enqueue l2 rest flow in
-        aux all_props flow assocs analysis' w)
-      else aux all_props flow assocs analysis rest
+        solve_helper all_props flow assocs analysis' w)
+      else solve_helper all_props flow assocs analysis rest
   ;;
 
   let result_of_analysis all_props flow assocs analysis =
@@ -80,10 +80,20 @@ module Make
     |> LabelMap.of_alist_exn
   ;;
 
-  let initialise initials extremal_value least_value (label, _) =
-    if LabelSet.mem initials label
-    then label, extremal_value
-    else label, least_value
+  let initialize initials extremal_value least_value flow =
+    let flow_source = List.map ~f:fst flow
+    and flow_sink = List.map ~f:snd flow
+    and extremal_labels = Set.to_list initials in
+    List.fold_left ~init:LabelMap.empty ~f:(fun accu label ->
+        let data =
+          if LabelSet.mem initials label then extremal_value else least_value
+        in
+        match LabelMap.add accu ~key:label ~data with
+        | `Duplicate -> accu
+        | `Ok accu' -> accu')
+    @@ flow_source
+    @ flow_sink
+    @ extremal_labels
   ;;
 
   let solve x =
@@ -93,12 +103,9 @@ module Make
     and least_value = L.least_element_of x
     and assocs = F.associations_of_t x
     and all_props = TF.all_properties_of x in
-    let worklist = flowgraph in
-    let init =
-      List.map ~f:(initialise initials extremal_value least_value) flowgraph
-      |> LabelMap.of_alist_exn
-    in
-    let analysis = aux all_props flowgraph assocs init worklist in
+    let init = initialize initials extremal_value least_value flowgraph
+    and worklist = flowgraph in
+    let analysis = solve_helper all_props flowgraph assocs init worklist in
     assocs, result_of_analysis all_props flowgraph assocs analysis
   ;;
 end
